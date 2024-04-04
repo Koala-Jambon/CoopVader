@@ -63,9 +63,13 @@ class App:
 
     def update_mainLobby(self):
         if pyxel.btnp(pyxel.KEY_RETURN):
-            if self.mainLobbyButton == 0: pyxel.quit()
+            if self.mainLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8"))
+                pyxel.quit()
             elif self.mainLobbyButton == 1: self.currentStage = "joinLobby"
             elif self.mainLobbyButton == 2: self.currentStage = "createLobby"
+            self.client.send(f'button|{self.currentStage}'.encode("utf-8"))
+            return 0
 
         for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
             if pyxel.btnp(NAVIGATION_KEY):
