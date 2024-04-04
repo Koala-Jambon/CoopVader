@@ -1,8 +1,12 @@
 import pyxel
+import os
+import socket
 
 class App:
 
-    def __init__(self) -> None:
+    def __init__(self, client) -> None:
+        self.client = client
+        
         self.userNickname =  ""
         self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
@@ -11,6 +15,7 @@ class App:
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
         self.currentStage = "getNickname"
         pyxel.init(228, 128, title="Invasion de l'espace")
+        pyxel.image(0).load(0, 0, './ressources/layer1.png')
         pyxel.image(1).load(0, 0, './ressources/title.png')
         pyxel.run(self.update, self.draw)
 
@@ -35,6 +40,8 @@ class App:
         if len(self.userNickname) >= 12:    return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
+            self.client.send(f"/lobby {self.userNickname}".encode("utf-8"))
+            data = self.client.recv(4096).decode("utf-8")
             exit(1)
             #Here connect to server
             self.currentStage = "mainLobby"
@@ -48,8 +55,29 @@ class App:
 
     def draw_getNickname(self):
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
-        pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 7)
+        pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 13)
         pyxel.text((pyxel.width - len(self.userNickname)*4 ) / 2, pyxel.height/2, self.userNickname, 7)
+        pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16, 0, 16, 16)
         return 0
 
-App()
+
+def run():
+    if os.name == "posix":
+        os.system("clear")
+    else:
+        os.system("cls")
+
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    # print("Debug : Connexion au serveur...")
+    try:
+        client.connect(("localhost", 20101))
+    except OSError:
+        print("Cannot connect to the server ; Try updating ; Try later")
+        exit()
+
+    # print("Debug : Connexion au lobby...")
+
+    App(client)
+    
+    
+run()
