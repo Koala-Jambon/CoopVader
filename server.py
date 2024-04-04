@@ -2,7 +2,7 @@ import time
 import socket
 import threading
 import os
-from colorama import Fore, Style
+from colorama import Fore
 
 # Initialisation du serveur sur le port `20101`
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -14,33 +14,62 @@ class ClientClass:
     def __init__(self, clientValue, clientAdress) -> None:
         self.clientValue = clientValue
         self.clientAdress = clientAdress
+        self.currentState = "getNickname"
 
-        print(Fore.BLUE, f'New Connection : {self.clientAdress}', Style.RESET_ALL)
+        print(Fore.BLUE, f'New Connection : {self.clientAdress}')
 
-        self.getUserNickname()
+        self.handleUser()
 
-    def getUserNickname(self):
+    def handleUser(self):
         while True:
-            userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
-                self.clientName = userMsg[1]
-                print(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}', Style.RESET_ALL)
-                self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
-            else:
-                self.clientValue.send('exit|Invalid message'.encode("utf-8"))
-                self.clientValue.close()
-                return
-            
-    def mainLobby(self):
-        while True:
-            pass
+            #getNickname
+            while self.currentState == "getNickname":
+                try:
+                    userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                except ConnectionResetError:
+                    print(Fore.RED, f'{self.clientAdress} quit the hard way (ALT+F4)')
+                    self.clientValue.close()
+                    return
+                if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
+                    self.clientName = userMsg[1]
+                    print(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}')
+                    self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
+                    self.currentState = "mainLobby"
+                    break
+                else:
+                    self.clientValue.send('exit|Invalid message'.encode("utf-8"))
+                    self.clientValue.close()
+                    return
+                
+            #mainLobby
+            while self.currentState == "mainLobby":
+                try:
+                    userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                except ConnectionResetError:
+                    print(Fore.RED, f'{self.clientAdress} / {self.clientName} quit the hard way (ALT+F4)')
+                    self.clientValue.close()
+                    return
+
+                if len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'quit':
+                    self.clientValue.close()
+                    return
+                elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
+                    self.clientValue.send('lobbyList|Rien à dire...'.encode("utf-8"))
+                    break
+                elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'createLobby':
+                    self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
+                    break
+                else:
+                    self.clientValue.send('exit|Invalid message'.encode("utf-8"))
+                    self.clientValue.close()
+                    return
 
 if os.name == "posix":
     os.system("clear")
 else:
     os.system("cls")
 
-print(Fore.RED, "Server Started", Style.RESET_ALL)
+print(Fore.RED, "Server Started")
 
 while True:
     newClient, newClientAdress = sock.accept()    
