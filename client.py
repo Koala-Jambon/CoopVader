@@ -16,6 +16,7 @@ class App:
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
         self.currentStage = "getNickname"
         pyxel.init(228, 128, title="Stars Invader")
+        pyxel.image(0).load(0, 0, './ressources/layer1.png')
         pyxel.image(1).load(0, 0, './ressources/title.png')
         pyxel.run(self.update, self.draw)
 
@@ -87,7 +88,7 @@ if __name__ == "__main__":
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        client.connect(("192.168.1.16", 20101))
+        client.connect(("localhost", 20101))
     except OSError:
         print("Cannot connect to the server ; Try updating ; Try later")
         exit()
