@@ -35,6 +35,7 @@ class App:
         if len(self.userNickname) >= 12:    return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
+            exit(1)
             #Here connect to server
             self.currentStage = "mainLobby"
             return 0
