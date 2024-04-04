@@ -40,8 +40,11 @@ class App:
         if len(self.userNickname) >= 12:    return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
-            #Here connect to server
+            self.client.send(f'sendName|{self.userNickname}'.encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if len(srvMsg) != 2 or srvMsg[0] != "continue" or srvMsg[0] == "exit": return 1
             self.currentStage = "mainLobby"
+
             return 0
         
         for i in range(26):
