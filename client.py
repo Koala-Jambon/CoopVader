@@ -4,7 +4,9 @@ import socket
 
 class App:
 
-    def __init__(self) -> None:
+    def __init__(self, client) -> None:
+        self.client = client
+
         self.mainLobbyButton = 0
         self.userNickname =  ""
         self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
@@ -82,7 +84,7 @@ if __name__ == "__main__":
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try:
-        client.connect(("localhost", 20101))
+        client.connect(("192.168.1.16", 20101))
     except OSError:
         print("Cannot connect to the server ; Try updating ; Try later")
         exit()
