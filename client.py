@@ -61,23 +61,17 @@ class App:
         return 0
 
 
-def run():
+if __name__ == "__main__":
     if os.name == "posix":
         os.system("clear")
     else:
         os.system("cls")
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    # print("Debug : Connexion au serveur...")
     try:
         client.connect(("localhost", 20101))
     except OSError:
         print("Cannot connect to the server ; Try updating ; Try later")
         exit()
 
-    # print("Debug : Connexion au lobby...")
-
     App(client)
-    
-    
-run()

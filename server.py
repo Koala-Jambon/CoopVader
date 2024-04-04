@@ -50,7 +50,6 @@ def handle_client(client_jouer: socket.socket, client_address):
 
         data = data.split()
 
-        print(data[0])
         
     print("Fermeture d'un client")
     raise OSError
