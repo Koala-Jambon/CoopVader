@@ -4,9 +4,8 @@ import socket
 
 class App:
 
-    def __init__(self, client) -> None:
-        self.client = client
-        
+    def __init__(self) -> None:
+        self.mainLobbyButton = 0
         self.userNickname =  ""
         self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
@@ -14,8 +13,7 @@ class App:
                              pyxel.KEY_N, pyxel.KEY_O, pyxel.KEY_P, pyxel.KEY_Q, pyxel.KEY_R, pyxel.KEY_S, pyxel.KEY_T,
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
         self.currentStage = "getNickname"
-        pyxel.init(228, 128, title="Invasion de l'espace")
-        pyxel.image(0).load(0, 0, './ressources/layer1.png')
+        pyxel.init(228, 128, title="Stars Invader")
         pyxel.image(1).load(0, 0, './ressources/title.png')
         pyxel.run(self.update, self.draw)
 
@@ -40,9 +38,6 @@ class App:
         if len(self.userNickname) >= 12:    return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
-            self.client.send(f"/lobby {self.userNickname}".encode("utf-8"))
-            data = self.client.recv(4096).decode("utf-8")
-            exit(1)
             #Here connect to server
             self.currentStage = "mainLobby"
             return 0
@@ -60,7 +55,25 @@ class App:
         pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16, 0, 16, 16)
         return 0
 
+    def update_mainLobby(self):
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.mainLobbyButton == 0: pyxel.quit()
+            elif self.mainLobbyButton == 1: self.currentStage = "joinLobby"
+            elif self.mainLobbyButton == 2: self.currentStage = "createLobby"
 
+        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.mainLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
+                break
+        
+        if self.mainLobbyButton == 3: self.mainLobbyButton = 0
+        if self.mainLobbyButton == -1: self.mainLobbyButton = 2
+        return 0
+
+    def draw_mainLobby(self):
+        pyxel.text(0, 0, f'{self.mainLobbyButton}', 7)
+        return 0
+    
 if __name__ == "__main__":
     if os.name == "posix":
         os.system("clear")
