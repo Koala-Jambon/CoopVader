@@ -27,6 +27,10 @@ class App:
             exit(status)
 
     def update_getNickname(self):
+        if pyxel.btnp(pyxel.KEY_BACKSPACE):
+            self.userNickname = self.userNickname[:-1]
+            return 0
+        
         if len(self.userNickname) >= 12:    return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
@@ -34,9 +38,6 @@ class App:
             self.currentStage = "mainLobby"
             return 0
         
-        if pyxel.btnp(pyxel.KEY_BACKSPACE):
-            self.userNickname = self.userNickname[:-1]
-            return 0
         for i in range(26):
             if pyxel.btnp(self.PYXEL_KEY_LETTERS[i]):
                 self.userNickname += self.ALPHABET[i]
