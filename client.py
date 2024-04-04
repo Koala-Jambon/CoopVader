@@ -28,6 +28,12 @@ class App:
 
     def update_getNickname(self):
         if len(self.userNickname) >= 12:    return 0
+
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            #Here connect to server
+            self.currentStage = "mainLobby"
+            return 0
+        
         if pyxel.btnp(pyxel.KEY_BACKSPACE):
             self.userNickname = self.userNickname[:-1]
             return 0
