@@ -10,7 +10,8 @@ class App:
                              pyxel.KEY_N, pyxel.KEY_O, pyxel.KEY_P, pyxel.KEY_Q, pyxel.KEY_R, pyxel.KEY_S, pyxel.KEY_T,
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
         self.currentStage = "getNickname"
-        pyxel.init(128, 128, title="Invasion de l'espace")
+        pyxel.init(228, 128, title="Invasion de l'espace")
+        pyxel.image(1).load(0, 0, './ressources/title.png')
         pyxel.run(self.update, self.draw)
 
     def update(self):
@@ -45,7 +46,9 @@ class App:
         return 0
 
     def draw_getNickname(self):
-        pyxel.text(0, 0, self.userNickname, 7)
+        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 7)
+        pyxel.text((pyxel.width - len(self.userNickname)*4 ) / 2, pyxel.height/2, self.userNickname, 7)
         return 0
 
 App()
