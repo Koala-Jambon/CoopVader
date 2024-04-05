@@ -10,6 +10,10 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind(("", 20101))
 sock.listen()
 
+exitProgramm = False
+
+partyList = [{"number" : 0, "state" : None}, {"number" : 1, "state" : "one"}]
+
 class ClientClass:
     def __init__(self, clientValue, clientAdress) -> None:
         self.clientValue = clientValue
@@ -27,7 +31,7 @@ class ClientClass:
                 try:
                     userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                 except ConnectionResetError:
-                    print(Fore.RED, f'{self.clientAdress} quit the hard way (ALT+F4)')
+                    print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
                     self.clientValue.close()
                     return
                 if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
@@ -46,7 +50,7 @@ class ClientClass:
                 try:
                     userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                 except ConnectionResetError:
-                    print(Fore.RED, f'{self.clientAdress} / {self.clientName} quit the hard way (ALT+F4)')
+                    print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - mainLobby')
                     self.clientValue.close()
                     return
 
@@ -54,15 +58,68 @@ class ClientClass:
                     self.clientValue.close()
                     return
                 elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
-                    self.clientValue.send('lobbyList|Rien à dire...'.encode("utf-8"))
+                    self.clientValue.send(f'continue|{len(partyList)-1}'.encode("utf-8"))
+                    self.currentState = "joinLobby"
                     break
                 elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'createLobby':
                     self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
+                    self.currentState = "createLobby"
                     break
                 else:
                     self.clientValue.send('exit|Invalid message'.encode("utf-8"))
                     self.clientValue.close()
                     return
+            
+            #joinLobby
+            while self.currentState == "joinLobby":
+                try:
+                    userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                except ConnectionResetError:
+                    print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - joinLobby')
+                    self.clientValue.close()
+                    return
+                
+                if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "joinParty"]: return 1
+                if userMsg[0] == "requestPartyList":
+                    if int(userMsg[1]) >= len(partyList) - 1: userMsg[1] = len(partyList)-2
+                    if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
+                    userMsg[1] = int(userMsg[1])
+                    indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyList)] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyList)]
+                    self.clientValue.send(f'sendPartyList|{partyList[indexList[0]]}|{partyList[indexList[1]]}|{partyList[indexList[2]]}|{len(partyList)-1}'.encode("utf-8"))
+
+def executeAdmin():
+    global exitProgramm
+    while True:
+        with open('adminCommand.txt', 'r') as cmdFile:
+            command = cmdFile.readline()
+        if command != "" : 
+            with open('adminCommand.txt', 'w') as file:
+                file.truncate(0)
+            
+            splitedCommand = command.split(" ", 1)
+            if splitedCommand[0] not in ["stop", "clear", "echo", "execas"]:
+                print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
+                continue
+            if splitedCommand[0] == "stop":
+                exitProgramm = True
+                exit(0)
+            elif splitedCommand[0] == "clear":
+                if os.name == "posix":
+                    os.system("clear")
+                else:
+                    os.system("cls")
+            elif splitedCommand[0] == "echo":
+                print(Fore.WHITE, splitedCommand[1])
+            elif splitedCommand[0] == "execas":
+                print(Fore.CYAN, "Commin' soon!")
+
+def main():
+    while True:
+        newClient, newClientAdress = sock.accept()    
+        try:
+            threading.Thread(target=ClientClass, args=(newClient, newClientAdress)).start()
+        except:
+            newClient.close()
 
 if os.name == "posix":
     os.system("clear")
@@ -71,9 +128,11 @@ else:
 
 print(Fore.RED, "Server Started")
 
-while True:
-    newClient, newClientAdress = sock.accept()    
-    try:
-        threading.Thread(target=ClientClass, args=(newClient, newClientAdress)).start()
-    except:
-        newClient.close()
+threading.Thread(target=executeAdmin, daemon=True).start()
+threading.Thread(target=main, daemon=True).start()
+
+while not exitProgramm:
+    pass
+
+print(Fore.RED, "Server stopped", Fore.RESET)
+exit(0)
