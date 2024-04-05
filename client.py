@@ -7,7 +7,10 @@ class App:
     def __init__(self, client) -> None:
         self.client = client
 
+        self.latestJoinButton = -1
+        self.loadedParties = [None, None, None]
         self.mainLobbyButton = 0
+        self.joinLobbyButton = 0
         self.userNickname =  ""
         self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
@@ -23,7 +26,7 @@ class App:
     def update(self):
         status = getattr(self, f'update_{self.currentStage}')()
         if status != 0:
-            print("An error occured")
+            print("An error occured", self.currentStage)
             exit(status)
 
     def draw(self):
@@ -69,6 +72,14 @@ class App:
             elif self.mainLobbyButton == 1: self.currentStage = "joinLobby"
             elif self.mainLobbyButton == 2: self.currentStage = "createLobby"
             self.client.send(f'button|{self.currentStage}'.encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if self.currentStage == "createLobby" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1
+            if self.currentStage == "joinLobby": 
+                if len(srvMsg) != 2 or srvMsg[0] != "continue": return 1
+                self.numberOfParties = int(srvMsg[1])
+                self.latestJoinButton = -1
+
+            self.mainLobbyButton = 0
             return 0
 
         for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
@@ -82,8 +93,36 @@ class App:
 
     def draw_mainLobby(self):
         pyxel.text(0, 0, f'{self.mainLobbyButton}', 7)
+        pyxel.text(100, 64, f'{["quit", "join", "create"][self.mainLobbyButton]}',7)
         return 0
     
+    def update_joinLobby(self):
+        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.joinLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
+                break
+        
+        if self.joinLobbyButton > self.numberOfParties: self.joinLobbyButton = self.numberOfParties
+        if self.joinLobbyButton < 0: self.joinLobbyButton = 0
+        
+        if self.joinLobbyButton != self.latestJoinButton: 
+            self.client.send(f'requestPartyList|{self.joinLobbyButton}'.encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if len(srvMsg) != 2 or srvMsg[0] != 'sendPartyList': return 1
+            self.loadedParties = [eval(x)['state'] for x in srvMsg[1].split('|', 3)[:-1]]
+            self.latestJoinButton = self.joinLobbyButton        
+
+        return 0
+    
+    def draw_joinLobby(self):
+        pyxel.text(0, 0, f'{self.joinLobbyButton}', 7)
+        pyxel.text(20, 20, f'{["quit" if self.joinLobbyButton == 0 else "select" for x in range(1)][0]}', 7)
+        pyxel.text(100, 40, f'{self.loadedParties[0]}', 7)
+        pyxel.text(100, 60, f'{self.loadedParties[1]}', 7)
+        pyxel.text(100, 80, f'{self.loadedParties[2]}', 7)
+        return 0
+    
+
 if __name__ == "__main__":
     if os.name == "posix":
         os.system("clear")
