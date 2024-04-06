@@ -97,6 +97,13 @@ class App:
         return 0
     
     def update_joinLobby(self):
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.joinLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8"))
+                self.currentStage = "mainLobby"
+            else:
+                self.client.send(f'button|{self.joinLobbyButton}'.encode("utf-8"))
+
         for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
             if pyxel.btnp(NAVIGATION_KEY):
                 self.joinLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
@@ -110,7 +117,7 @@ class App:
             srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
             if len(srvMsg) != 2 or srvMsg[0] != 'sendPartyList': return 1
             self.loadedParties = [eval(x)['state'] for x in srvMsg[1].split('|', 3)[:-1]]
-            self.latestJoinButton = self.joinLobbyButton        
+            self.latestJoinButton = self.joinLobbyButton      
 
         return 0
     
@@ -120,6 +127,13 @@ class App:
         pyxel.text(100, 40, f'{self.loadedParties[0]}', 7)
         pyxel.text(100, 60, f'{self.loadedParties[1]}', 7)
         pyxel.text(100, 80, f'{self.loadedParties[2]}', 7)
+        return 0
+    
+    def update_createLobby(self):
+        return 0
+
+    def draw_createLobby(self):
+        pyxel.text(0, 0, "Waiting", 7)
         return 0
     
 
