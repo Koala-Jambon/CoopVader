@@ -55,6 +55,7 @@ class ClientClass:
                     return
 
                 if len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'quit':
+                    print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - mainLobby')
                     self.clientValue.close()
                     return
                 elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
@@ -79,13 +80,25 @@ class ClientClass:
                     self.clientValue.close()
                     return
                 
-                if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "joinParty"]: return 1
+                if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: return 1
                 if userMsg[0] == "requestPartyList":
                     if int(userMsg[1]) >= len(partyList) - 1: userMsg[1] = len(partyList)-2
                     if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
                     userMsg[1] = int(userMsg[1])
                     indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyList)] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyList)]
                     self.clientValue.send(f'sendPartyList|{partyList[indexList[0]]}|{partyList[indexList[1]]}|{partyList[indexList[2]]}|{len(partyList)-1}'.encode("utf-8"))
+                elif userMsg[0] == "button":
+                    if userMsg[1] == "quit": 
+                        self.currentState = "mainLobby"
+                        break
+
+            while self.currentState == "createLobby":
+                try:
+                    userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                except ConnectionResetError:
+                    print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - joinLobby')
+                    self.clientValue.close()
+                    return
 
 def executeAdmin():
     global exitProgramm
@@ -108,6 +121,7 @@ def executeAdmin():
                     os.system("clear")
                 else:
                     os.system("cls")
+                print(Fore.RED, "Server Started")
             elif splitedCommand[0] == "echo":
                 print(Fore.WHITE, splitedCommand[1])
             elif splitedCommand[0] == "execas":
