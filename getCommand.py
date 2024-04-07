@@ -1,11 +1,13 @@
 from os import system, name
+from colorama import Fore
+
 
 if name == "posix":
     system("clear")
 else:
     system("cls")
 
-print("Welcome to shell-invader!")
+print(Fore.WHITE, "Welcome to shell-invader!")
 
 while True:
     commandInput = input("$>")
