@@ -17,7 +17,7 @@ exitProgramm = False
 
 gameInfos = [{}]
 
-partyList = [{"number" : 0, "state" : None, "players" : []}, {"number" : 1, "state" : "one", "players" : []}]
+partyList = [{"number" : 0, "state" : None, "players" : []}]
 
 class ClientClass:
     def __init__(self, clientValue, clientAdress) -> None:
@@ -27,11 +27,13 @@ class ClientClass:
         self.playerNumber = 0
         self.currentState = "getNickname"
 
-        print(Fore.BLUE, f'New Connection : {self.clientAdress}')
+        print(Fore.BLUE, f'New connection : {self.clientAdress}')
 
         self.handleUser()
 
-    def stop(self):
+    def quit(self):
+        print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
+        self.clientValue.close()
         exit(1)
 
     def handleUser(self):
@@ -39,138 +41,99 @@ class ClientClass:
             while True:
                 #getNickname
                 while self.currentState == "getNickname":
-                    try:
-                        userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError:
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
-                        self.clientValue.close()
-                        return
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
                     if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
                         self.clientName = userMsg[1]
                         print(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}')
-                        self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
+                        self.clientValue.send('continue|skip'.encode("utf-8"))
                         self.currentState = "mainLobby"
                         break
-                    else:
-                        self.clientValue.send('exit|Invalid message'.encode("utf-8"))
-                        self.clientValue.close()
-                        return
+                    else: self.quit()
                     
                 #mainLobby
                 while self.currentState == "mainLobby":
-                    try:
-                        userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError:
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - mainLobby')
-                        self.clientValue.close()
-                        return
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
 
-                    if len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'quit':
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - mainLobby')
-                        self.clientValue.close()
-                        return
-                    elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
+                    if len(userMsg) != 2 or (userMsg[0] == 'button' and userMsg[1] == 'quit'): self.quit()
+                    elif userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
                         self.clientValue.send(f'continue|{len(partyList)-1}'.encode("utf-8"))
                         self.currentState = "joinLobby"
                         break
-                    elif len(userMsg) == 2 and userMsg[0] == 'button' and userMsg[1] == 'waitGame':
-                        self.clientValue.send('continue|Rien à dire...'.encode("utf-8"))
+                    elif userMsg[0] == 'button' and userMsg[1] == 'waitGame':
+                        self.clientValue.send('continue|skip'.encode("utf-8"))
                         self.currentState = "waitGame"
                         break
-                    else:
-                        self.clientValue.send('exit|Invalid message'.encode("utf-8"))
-                        self.clientValue.close()
-                        return
                 
                 #joinLobby
                 while self.currentState == "joinLobby":
-                    try:
-                        userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError:
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - joinLobby')
-                        self.clientValue.close()
-                        return
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
                     
-                    if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: return 1
+                    if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: self.quit()
                     if userMsg[0] == "requestPartyList":
                         if int(userMsg[1]) >= len(partyList) - 1: userMsg[1] = len(partyList)-2
                         if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
-                        userMsg[1] = int(userMsg[1])
+                        else: userMsg[1] = int(userMsg[1])
                         indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyList)] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyList)]
                         self.clientValue.send(f'sendPartyList|{partyList[indexList[0]]}|{partyList[indexList[1]]}|{partyList[indexList[2]]}|{len(partyList)-1}'.encode("utf-8"))
-                    elif userMsg[0] == "button":
-                        if userMsg[1] == "quit": 
-                            self.currentState = "mainLobby"
-                            break
-                        elif int(userMsg[1]) < len(partyList):
-                            if len(partyList[int(userMsg[1])]["players"]) == 2:
-                                self.clientValue.send(f'continue|refused'.encode("utf-8")) 
-                            else:
-                                partyList[int(userMsg[1])]["players"].append(f'{self.clientAdress}')
-                                if len(partyList[int(userMsg[1])]["players"]) == 2: 
-                                    partyList[int(userMsg[1])]["state"] = "FULL"
-                                    self.currentState = "inGame"
-                                    self.playerNumber = partyList[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
-                                    self.clientValue.send(f'continue|playing'.encode("utf-8"))
-                                else: 
-                                    partyList[int(userMsg[1])]["state"] = self.clientName
-                                    self.gameNumber = userMsg[1]
-                                    self.currentState = "waitGame"
-                                    self.clientValue.send(f'continue|joined'.encode("utf-8"))
+                    elif userMsg[0] == "button" and userMsg[1] == "quit": self.currentState = "mainLobby"
+                    elif userMsg[0] == "button" and int(userMsg[1]) < len(partyList):
+                        if len(partyList[int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
+                        else:
+                            partyList[int(userMsg[1])]["players"].append(f'{self.clientAdress}')
+                            if len(partyList[int(userMsg[1])]["players"]) == 2: 
+                                partyList[int(userMsg[1])]["state"] = "FULL"
+                                self.currentState = "inGame"
+                                self.playerNumber = partyList[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
+                                self.clientValue.send(f'continue|playing'.encode("utf-8"))
+                            else: 
+                                partyList[int(userMsg[1])]["state"] = self.clientName
+                                self.gameNumber = userMsg[1]
+                                self.currentState = "waitGame"
+                                self.clientValue.send(f'continue|joined'.encode("utf-8"))
+                    else: self.quit()
 
                 while self.currentState == "waitGame":
-                    try:
-                        userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError:
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - waitGame')
-                        self.clientValue.close()
-                        return
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
                     
-                    if len(userMsg) != 2 or userMsg[0] != "waiting" or int(userMsg[1]) >= len(partyList): 
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - waitGame')
-                        self.clientValue.close() 
-                        return
+                    if len(userMsg) != 2 or userMsg[0] != "waiting" or int(userMsg[1]) >= len(partyList): self.quit()
                     
-                    if partyList[int(userMsg[1])]["state"] == "FULL":
+                    if len(partyList[int(userMsg[1])]["players"]) == 2:
                         self.currentState = "inGame"
                         self.playerNumber = partyList[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
                         self.clientValue.send(f'inGame|{self.gameNumber}'.encode("utf-8"))
-                    else:
-                        self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
+                    else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
                     
                 while self.currentState == "inGame":
-                    pass
-                    try:
-                        userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError:
-                        print(Fore.RED, f'Someone quit : {self.clientAdress} | {self.clientName} - inGame')
-                        self.clientValue.close()
-                        return
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
                     
-                    if len(userMsg) != 2 or userMsg[0] != "packets":
-                        self.clientValue.close()
-                        return
+                    if len(userMsg) != 2 or userMsg[0] != "packets": self.quit()
                     
                     userMsg = userMsg[1].split("|", 2)
-                    if len(userMsg) != 3: return
+                    if len(userMsg) != 3: self.quit()
                     gameInfos[self.playerNumber]["coords"][0] += self.mX
                     gameInfos[self.playerNumber]["coords"][1] += self.mY
         except ConnectionAbortedError:
             print(Fore.RED, f'{self.clientAdress} was kicked')
+            self.clientValue.close()
 
 def executeAdmin():
-    commandList = ["ban", "banlist", "clear", "cls", "echo", "execas", "kick", "list", "man", "pardon", "stop"]
     instruction = {"ban" : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
                    "banlist" : f"{Fore.WHITE} MAN BANLIST - Returns the list of banned IPs",
                    "clear" : f"{Fore.WHITE} MAN CLEAR - Clears the server log shell",
                    "cls" : f"{Fore.WHITE} MAN CLS - Clears the server command shell",
                    "echo" : f"{Fore.WHITE} MAN ECHO - Writes anything to the server log shell",
-                   "execas" : f"{Fore.WHITE} COMMING SOON",
+                   "execas" : f"{Fore.WHITE} MAN EXECAS - ... Empty ... For now!",
                    "kick" : f"{Fore.WHITE} MAN KICK - Kicks an IP;PORT; example : '$>kick 127.0.0.1;20201'",
                    "list" : f"{Fore.WHITE} MAN LIST - Returns the list of connected IPs",
-                   "man" : f"{Fore.WHITE} MAN MAN - Are ya serious man?",
-                   "pardon" : f"{Fore.WHITE} MAN PARDON - Unbans an IP; example : '$>pardon 127.0.0.1'",
+                   "man" : f"{Fore.WHITE} MAN MAN - RTFM",
+                   "pardon" : f"{Fore.WHITE} MAN PARDON - Pardons an IP; example : '$>pardon 127.0.0.1'",
                    "stop" : f"{Fore.WHITE} MAN STOP - Stops the server..."}
+    commandList = list(instruction.keys())
     global exitProgramm
     while True:
         with open('adminCommand.txt', 'r') as cmdFile:
@@ -178,7 +141,6 @@ def executeAdmin():
         if command != "" : 
             with open('adminCommand.txt', 'w') as file:
                 file.truncate(0)
-            
             splitedCommand = command.split(" ", 1)
             if splitedCommand[0] not in commandList:
                 print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
