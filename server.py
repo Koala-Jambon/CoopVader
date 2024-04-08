@@ -188,22 +188,24 @@ def main():
             threadDict[f"{newClientAdress[0]};{newClientAdress[1]}"].start()
         except: newClient.close()
 
-def gameState():
+def updateGameState():
     while True:
         for party in partyListCOOP[1:]:
-            if len(partyList[party]["players"]) == 0: partyList[party]["state"]= "EMPTY"
-            elif len(partyList[party]["players"]) == 2: partyList[party]["state"]= "FULL"
-            else: partyList[party]["state"] = partyList[party]["players"][-1]
+            if len(partyListCOOP[party]["players"]) == 0: partyListCOOP[party]["state"] = "EMPTY"
+            elif len(partyListCOOP[party]["players"]) == 2: partyListCOOP[party]["state"] = "FULL"
+            else: partyListCOOP[party]["state"] = partyListCOOP[party]["players"][-1]
 
-if os.name == "posix": os.system("clear")
-else: os.system("cls")
-
-print(Fore.RED, "Server Started")
-
-threading.Thread(target=executeAdmin, daemon=True).start()
-threading.Thread(target=main, daemon=True).start()
-
-while not exitProgramm: pass
-
-print(Fore.RED, "Server stopped", Fore.RESET)
-exit(0)
+if __name__ == "__main__":
+    if os.name == "posix": os.system("clear")
+    else: os.system("cls")
+    
+    print(Fore.RED, "Server Started")
+    
+    threading.Thread(target=main, daemon=True).start()
+    threading.Thread(target=executeAdmin, daemon=True).start()
+    threading.Thread(target=updateGameState, daemon=True).start()
+    
+    while not exitProgramm: pass
+    
+    print(Fore.RED, "Server stopped", Fore.RESET)
+    exit(0)
