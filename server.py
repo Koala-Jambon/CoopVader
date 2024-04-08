@@ -149,10 +149,8 @@ def executeAdmin():
                 exitProgramm = True
                 exit(0)
             elif splitedCommand[0] == "clear":
-                if os.name == "posix":
-                    os.system("clear")
-                else:
-                    os.system("cls")
+                if os.name == "posix": os.system("clear")
+                else: os.system("cls")
                 print(Fore.RED, "Server Started")
             elif splitedCommand[0] == "man":
                 if len(splitedCommand) == 1:
@@ -198,18 +196,15 @@ def main():
         except:
             newClient.close()
 
-if os.name == "posix":
-    os.system("clear")
-else:
-    os.system("cls")
+if os.name == "posix": os.system("clear")
+else: os.system("cls")
 
 print(Fore.RED, "Server Started")
 
 threading.Thread(target=executeAdmin, daemon=True).start()
 threading.Thread(target=main, daemon=True).start()
 
-while not exitProgramm:
-    pass
+while not exitProgramm: pass
 
 print(Fore.RED, "Server stopped", Fore.RESET)
 exit(0)
