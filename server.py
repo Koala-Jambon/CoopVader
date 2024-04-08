@@ -136,10 +136,9 @@ def executeAdmin():
                    "stop"    : f"{Fore.WHITE} MAN STOP - Stops the server..."}
     commandList = list(instruction.keys())
     while True:
-        with open('adminCommand.txt', 'r') as cmdFile:
-            command = cmdFile.readline()
+        with open('adminCommand.txt', 'r') as cmdFile: command = cmdFile.readline()
+        with open('adminCommand.txt', 'w') as cmdFile: cmdFile.truncate(0)
         if command == "": continue
-        with open('adminCommand.txt', 'w') as file: file.truncate(0)
         splitedCommand = command.split(" ", 1)
         if splitedCommand[0] not in commandList: print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
         elif splitedCommand[0] == "stop":
