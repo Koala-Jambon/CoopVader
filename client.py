@@ -45,14 +45,13 @@ class App:
             self.userNickname = self.userNickname[:-1]
             return 0
         
-        if len(self.userNickname) >= 12:    return 0
+        if len(self.userNickname) >= 12: return 0
 
         if pyxel.btnp(pyxel.KEY_RETURN):
             self.client.send(f'sendName|{self.userNickname}'.encode("utf-8"))
             srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
             if len(srvMsg) != 2 or srvMsg[0] != "continue" or srvMsg[0] == "exit": return 1
             self.currentState = "mainLobby"
-
             return 0
         
         for i in range(26):
@@ -187,16 +186,13 @@ class App:
         pyxel.rect(self.gameInfos[1]["coords"][0], self.gameInfos[1]["coords"][1], 10, 10, 8)
 
 if __name__ == "__main__":
-    if os.name == "posix":
-        os.system("clear")
-    else:
-        os.system("cls")
+    if os.name == "posix": os.system("clear")
+    else: os.system("cls")
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try:
-        client.connect(("localhost", 20101))
+    try: client.connect(("localhost", 20101))
     except OSError:
-        print("Cannot connect to the server ; Try updating ; Try later")
+        print("Could not connect to the server: try updating; try later")
         exit()
 
     App(client)
