@@ -34,6 +34,7 @@ class ClientClass:
     def quit(self):
         print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
         self.clientValue.close()
+        del connectionDict[f"{self.clientAdress[0]};{selftclientAdress[1]}"]
         exit(1)
 
     def handleUser(self):
