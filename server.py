@@ -17,7 +17,7 @@ exitProgramm = False
 
 gameInfos = [{}]
 
-partyList = [{"number" : 0, "state" : None, "players" : []}]
+partyListCOOP = [{"number" : 0, "state" : None, "players" : []}]
 
 class ClientClass:
     def __init__(self, clientValue, clientAdress) -> None:
@@ -74,23 +74,23 @@ class ClientClass:
                     
                     if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: self.quit()
                     if userMsg[0] == "requestPartyList":
-                        if int(userMsg[1]) >= len(partyList) - 1: userMsg[1] = len(partyList)-2
+                        if int(userMsg[1]) >= len(partyListCOOP) - 1: userMsg[1] = len(partyListCOOP)-2
                         if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
                         else: userMsg[1] = int(userMsg[1])
                         indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyList)] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyList)]
-                        self.clientValue.send(f'sendPartyList|{partyList[indexList[0]]}|{partyList[indexList[1]]}|{partyList[indexList[2]]}|{len(partyList)-1}'.encode("utf-8"))
+                        self.clientValue.send(f'sendPartyList|{partyListCOOP[indexList[0]]}|{partyListCOOP[indexList[1]]}|{partyListCOOP[indexList[2]]}|{len(partyListCOOP)-1}'.encode("utf-8"))
                     elif userMsg[0] == "button" and userMsg[1] == "quit": self.currentState = "mainLobby"
                     elif userMsg[0] == "button" and int(userMsg[1]) < len(partyList):
                         if len(partyList[int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
                         else:
-                            partyList[int(userMsg[1])]["players"].append(f'{self.clientAdress}')
-                            if len(partyList[int(userMsg[1])]["players"]) == 2: 
-                                partyList[int(userMsg[1])]["state"] = "FULL"
+                            partyListCOOP[int(userMsg[1])]["players"].append(f'{self.clientAdress}')
+                            if len(partyListCOOP[int(userMsg[1])]["players"]) == 2: 
+                                partyListCOOP[int(userMsg[1])]["state"] = "FULL"
                                 self.currentState = "inGame"
-                                self.playerNumber = partyList[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
+                                self.playerNumber = partyListCOOP[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
                                 self.clientValue.send(f'continue|playing'.encode("utf-8"))
                             else: 
-                                partyList[int(userMsg[1])]["state"] = self.clientName
+                                partyListCOOP[int(userMsg[1])]["state"] = self.clientName
                                 self.gameNumber = userMsg[1]
                                 self.currentState = "waitGame"
                                 self.clientValue.send(f'continue|joined'.encode("utf-8"))
@@ -104,7 +104,7 @@ class ClientClass:
                     
                     if len(partyList[int(userMsg[1])]["players"]) == 2:
                         self.currentState = "inGame"
-                        self.playerNumber = partyList[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
+                        self.playerNumber = partyListCOOP[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
                         self.clientValue.send(f'inGame|{self.gameNumber}'.encode("utf-8"))
                     else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
                     
@@ -187,6 +187,13 @@ def main():
             threadDict[f"{newClientAdress[0]};{newClientAdress[1]}"] = threading.Thread(target=ClientClass, args=(newClient, newClientAdress), daemon=True)
             threadDict[f"{newClientAdress[0]};{newClientAdress[1]}"].start()
         except: newClient.close()
+
+def gameState():
+    while True:
+        for party in partyListCOOP[1:]:
+            if len(partyList[party]["players"]) == 0: partyList[party]["state"]= "EMPTY"
+            elif len(partyList[party]["players"]) == 2: partyList[party]["state"]= "FULL"
+            else: partyList[party]["state"] = partyList[party]["players"][-1]
 
 if os.name == "posix": os.system("clear")
 else: os.system("cls")
