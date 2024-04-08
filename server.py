@@ -188,7 +188,7 @@ def main():
             threadDict[f"{newClientAdress[0]};{newClientAdress[1]}"].start()
         except: newClient.close()
 
-def updateGameState():
+def updatePartyList():
     while True:
         for party in partyListCOOP[1:]:
             if len(partyListCOOP[party]["players"]) == 0: partyListCOOP[party]["state"] = "EMPTY"
@@ -203,7 +203,7 @@ if __name__ == "__main__":
     
     threading.Thread(target=main, daemon=True).start()
     threading.Thread(target=executeAdmin, daemon=True).start()
-    threading.Thread(target=updateGameState, daemon=True).start()
+    threading.Thread(target=updatePartyList, daemon=True).start()
     
     while not exitProgramm: pass
     
