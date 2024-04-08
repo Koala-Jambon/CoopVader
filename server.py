@@ -17,11 +17,15 @@ exitProgramm = False
 
 gameInfos = [{}]
 
-partyListCOOP = [{"number" : 0, "state" : None, "players" : []}]
+partyLists = {
+              "VS"   : [{"number" : 0, "state" : None, "players" : []}, {"number" : 1, "state" : "bli", "players" : []}],
+              "COOP" : [{"number" : 0, "state" : None, "players" : []}, {"number" : 1, "state" : "bla", "players" : []}]
+              }
 
 class ClientClass:
     def __init__(self, clientValue, clientAdress) -> None:
         self.gameNumber = 0
+        self.gameMode = ""
         self.clientValue = clientValue
         self.clientAdress = clientAdress
         self.playerNumber = 0
@@ -34,7 +38,8 @@ class ClientClass:
     def quit(self):
         print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
         self.clientValue.close()
-        del connectionDict[f"{self.clientAdress[0]};{selftclientAdress[1]}"]
+        del connectionDict[f"{self.clientAdress[0]};{self.clientAdress[1]}"]
+        if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
         exit(1)
 
     def handleUser(self):
@@ -57,14 +62,16 @@ class ClientClass:
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                     except ConnectionResetError: self.quit()
 
+
                     if len(userMsg) != 2 or (userMsg[0] == 'button' and userMsg[1] == 'quit'): self.quit()
-                    elif userMsg[0] == 'button' and userMsg[1] == 'joinLobby':
-                        self.clientValue.send(f'continue|{len(partyList)-1}'.encode("utf-8"))
+                    elif userMsg[0] == 'button' and userMsg[1][:9] == 'joinLobby':
                         self.currentState = "joinLobby"
+                        self.gameMode = userMsg[1][9:]
+                        self.clientValue.send(f'continue|{len(partyLists[self.gameMode])-1}'.encode("utf-8"))
                         break
-                    elif userMsg[0] == 'button' and userMsg[1] == 'waitGame':
+                    elif userMsg[0] == 'button' and userMsg[1] == 'createGame':
                         self.clientValue.send('continue|skip'.encode("utf-8"))
-                        self.currentState = "waitGame"
+                        self.currentState = "createGame"
                         break
                 
                 #joinLobby
@@ -74,37 +81,43 @@ class ClientClass:
                     
                     if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: self.quit()
                     if userMsg[0] == "requestPartyList":
-                        if int(userMsg[1]) >= len(partyListCOOP) - 1: userMsg[1] = len(partyListCOOP)-2
+                        if int(userMsg[1]) >= len(partyLists[self.gameMode]) - 1: userMsg[1] = len(partyLists[self.gameMode])-2
                         if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
                         else: userMsg[1] = int(userMsg[1])
-                        indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyList)] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyList)]
-                        self.clientValue.send(f'sendPartyList|{partyListCOOP[indexList[0]]}|{partyListCOOP[indexList[1]]}|{partyListCOOP[indexList[2]]}|{len(partyListCOOP)-1}'.encode("utf-8"))
+                        indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyLists[self.gameMode])] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyLists[self.gameMode])]
+                        self.clientValue.send(f'sendPartyList|{partyLists[self.gameMode][indexList[0]]}|{partyLists[self.gameMode][indexList[1]]}|{partyLists[self.gameMode][indexList[2]]}|{len(partyLists[self.gameMode])-1}'.encode("utf-8"))
                     elif userMsg[0] == "button" and userMsg[1] == "quit": self.currentState = "mainLobby"
-                    elif userMsg[0] == "button" and int(userMsg[1]) < len(partyList):
-                        if len(partyList[int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
+                    elif userMsg[0] == "button" and int(userMsg[1]) < len(partyLists[self.gameMode]):
+                        if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
                         else:
-                            partyListCOOP[int(userMsg[1])]["players"].append(f'{self.clientAdress}')
-                            if len(partyListCOOP[int(userMsg[1])]["players"]) == 2: 
-                                partyListCOOP[int(userMsg[1])]["state"] = "FULL"
+                            partyLists[self.gameMode][int(userMsg[1])]["players"].append([self.clientAdress, self.clientName])
+                            if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: 
+                                partyLists[self.gameMode][int(userMsg[1])]["state"] = "FULL"
                                 self.currentState = "inGame"
-                                self.playerNumber = partyListCOOP[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
+                                self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
                                 self.clientValue.send(f'continue|playing'.encode("utf-8"))
                             else: 
-                                partyListCOOP[int(userMsg[1])]["state"] = self.clientName
-                                self.gameNumber = userMsg[1]
+                                partyLists[self.gameMode][int(userMsg[1])]["state"] = self.clientName
+                                self.gameNumber = int(userMsg[1])
                                 self.currentState = "waitGame"
                                 self.clientValue.send(f'continue|joined'.encode("utf-8"))
                     else: self.quit()
+
+                while self.currentState == "createLobby":
+                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
+                    except ConnectionResetError: self.quit()
+
+                    if (len(userMsg) == 1 and userMsg[0] != "wait") or (len(userMsg) == 2 and userMsg[0] != "create"): self.quit()
 
                 while self.currentState == "waitGame":
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                     except ConnectionResetError: self.quit()
                     
-                    if len(userMsg) != 2 or userMsg[0] != "waiting" or int(userMsg[1]) >= len(partyList): self.quit()
+                    if len(userMsg) != 2 or userMsg[0] != "waiting" or int(userMsg[1]) >= len(partyLists[self.gameMode]): self.quit()
                     
-                    if len(partyList[int(userMsg[1])]["players"]) == 2:
+                    if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2:
                         self.currentState = "inGame"
-                        self.playerNumber = partyListCOOP[int(userMsg[1])]["players"].index(f'{self.clientAdress}')
+                        self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
                         self.clientValue.send(f'inGame|{self.gameNumber}'.encode("utf-8"))
                     else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
                     
@@ -134,12 +147,13 @@ def executeAdmin():
                    "list"    : f"{Fore.WHITE} MAN LIST - Returns the list of connected IPs",
                    "man"     : f"{Fore.WHITE} MAN MAN - RTFM",
                    "pardon"  : f"{Fore.WHITE} MAN PARDON - Pardons an IP; example : '$>pardon 127.0.0.1'",
+                   "partyls" : f"{Fore.WHITE} MAN PARTYLS - Returns the value of the variable : partylists",
                    "stop"    : f"{Fore.WHITE} MAN STOP - Stops the server..."}
     commandList = list(instruction.keys())
     while True:
         with open('adminCommand.txt', 'r') as cmdFile: command = cmdFile.readline()
-        with open('adminCommand.txt', 'w') as cmdFile: cmdFile.truncate(0)
         if command == "": continue
+        with open('adminCommand.txt', 'w') as cmdFile: cmdFile.truncate(0)
         splitedCommand = command.split(" ", 1)
         if splitedCommand[0] not in commandList: print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
         elif splitedCommand[0] == "stop":
@@ -153,7 +167,7 @@ def executeAdmin():
             if len(splitedCommand) == 1:
                 print(Fore.CYAN, "Here is the list of available commands :")
                 for command in commandList: print(f"    -{command}")
-            elif splitedCommand[1] in commandList: print(instruction[splitedCommand[1]])
+            elif splitedCommand[1] in commandList: print(Fore.CYAN, instruction[splitedCommand[1]])
             else: print(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
         elif splitedCommand[0] == "echo": print(Fore.WHITE, splitedCommand[1])
         elif splitedCommand[0] == "list": print(Fore.CYAN, "Here is a list of connected IPs :", list(connectionDict.keys()))
@@ -175,6 +189,7 @@ def executeAdmin():
             else: print(Fore.BLUE, f'{splitedCommand[1]} is not banned')
         elif splitedCommand[0] == "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
         elif splitedCommand[0] == "execas": print(Fore.CYAN, "Commin' soon!")
+        elif splitedCommand[0] == "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
 
 def main():
     while True:
@@ -190,10 +205,11 @@ def main():
 
 def updatePartyList():
     while True:
-        for party in partyListCOOP[1:]:
-            if len(partyListCOOP[party]["players"]) == 0: partyListCOOP[party]["state"] = "EMPTY"
-            elif len(partyListCOOP[party]["players"]) == 2: partyListCOOP[party]["state"] = "FULL"
-            else: partyListCOOP[party]["state"] = partyListCOOP[party]["players"][-1]
+        for gameMode in ["VS", "COOP"]:
+            for party in range(1, len(partyLists[gameMode])):
+                if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
+                elif len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
+                elif len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
