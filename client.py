@@ -1,15 +1,14 @@
 import pyxel
 import os
 import socket
+from time import sleep
 
 class App:
 
     def __init__(self, client) -> None:
         self.client = client
 
-        self.mY = 0
-        self.mX = 0
-        self.gameInfos = [{}, {}]
+        self.gameMode = ""
         self.gameNumber = 0
         self.latestJoinButton = -1
         self.loadedParties = [None, None, None]
@@ -72,9 +71,9 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton == 1: self.currentState = "joinLobby"
-            elif self.mainLobbyButton == 2: self.currentState = "waitGame"
-            self.client.send(f'button|{self.currentState}'.encode("utf-8"))
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1]
+            elif self.mainLobbyButton == 3: self.currentState = "createGame"
+            self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
             srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
             if self.currentState == "waitGame" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1
             if self.currentState == "joinLobby": 
@@ -90,13 +89,13 @@ class App:
                 self.mainLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
                 break
         
-        if self.mainLobbyButton == 3: self.mainLobbyButton = 0
-        if self.mainLobbyButton == -1: self.mainLobbyButton = 2
+        if self.mainLobbyButton >= 4: self.mainLobbyButton = 0
+        if self.mainLobbyButton == -1: self.mainLobbyButton = 3
         return 0
 
     def draw_mainLobby(self):
         pyxel.text(0, 0, f'{self.mainLobbyButton}', 7)
-        pyxel.text(100, 64, f'{["quit", "join", "create"][self.mainLobbyButton]}',7)
+        pyxel.text(100, 64, f'{["quit", "join1v1", "joinCO-OP", "create"][self.mainLobbyButton]}',7)
         return 0
     
     def update_joinLobby(self):
@@ -115,9 +114,6 @@ class App:
                     return 0
                 elif srvMsg[1] == "playing":
                     self.currentState = "inGame"
-                    self.gameInfos = [{"coords" : [0, 0], "lives" : 3, "bonus" : "None"}, {"coords" : [0, 0], "lives" : 3, "bonus" : "None"}]
-                    self.mY = 0
-                    self.mX = 0
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -149,16 +145,19 @@ class App:
     def update_waitGame(self):
         self.client.send(f"waiting|{self.gameNumber}".encode("utf-8"))
         srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-        print(srvMsg)
         if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1
         if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
         elif srvMsg[0] == "inGame":
-            self.currentState == "inGame"
+            self.currentState = "inGame"
             self.gameNumber = int(srvMsg[1])
-            self.gameInfos = [{"coords" : [0, 0], "lives" : 3, "bonus" : "None"}, {"coords" : [0, 0], "lives" : 3, "bonus" : "None"}]
-            self.mY = 0
-            self.mX = 0
+        sleep(1)
 
+        return 0
+
+    def update_createLobby(self):
+        return 0
+
+    def draw_createLobby(self):
         return 0
 
     def draw_waitGame(self):
@@ -166,24 +165,10 @@ class App:
         return 0
     
     def update_inGame(self):
-        if pyxel.btnp(pyxel.KEY_Z): self.mY += 1
-        if pyxel.btnp(pyxel.KEY_S): self.mY -= 1
-        if pyxel.btnp(pyxel.KEY_D): self.mX += 1
-        if pyxel.btnp(pyxel.KEY_Q): self.mX -= 1
-
-        self.action = None
-
-        self.client.send(f'packets|{self.mX}|{self.mY}|{self.action}')
-        #srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-        #if srvMsg[0] not in ["fine"]: return 1
-
-        self.gameInfos[0]["coords"][0] += self.mX
-        self.gameInfos[0]["coords"][1] += self.mY
         return 0
 
     def draw_inGame(self):
-        pyxel.rect(self.gameInfos[0]["coords"][0], self.gameInfos[0]["coords"][1], 10, 10, 7)
-        pyxel.rect(self.gameInfos[1]["coords"][0], self.gameInfos[1]["coords"][1], 10, 10, 8)
+        return 0
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
