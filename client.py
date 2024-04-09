@@ -175,14 +175,21 @@ class App:
         return 0
 
     def update_waitGame(self):
-        self.client.send(f"waiting|{self.gameNumber}".encode("utf-8"))
-        srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-        if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1
-        if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
-        elif srvMsg[0] == "inGame":
-            self.currentState = "inGame"
-            self.gameNumber = int(srvMsg[1])
-        sleep(1)
+        if pyxel.btnp(pyxel.KEY_SPACE): 
+            self.client.send(f"quit|None".encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if srvMsg[0] != "mainLobby": self.quit()
+            self.currentState = "mainLobby"
+            return 0
+        else: 
+            self.client.send(f"waiting|{self.gameNumber}".encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1
+            if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
+            elif srvMsg[0] == "inGame":
+                self.currentState = "inGame"
+                self.gameNumber = int(srvMsg[1])
+            sleep(1)
 
         return 0
     
