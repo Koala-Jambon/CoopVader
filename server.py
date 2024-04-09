@@ -18,8 +18,8 @@ exitProgramm = False
 gameInfos = [{}]
 
 partyLists = {
-              "VS"   : [{"number" : 0, "state" : None, "players" : []}, {"number" : 1, "state" : "bli", "players" : []}],
-              "COOP" : [{"number" : 0, "state" : None, "players" : []}, {"number" : 1, "state" : "bla", "players" : []}]
+              "VS"   : [{"state" : None, "players" : []}],
+              "COOP" : [{"state" : None, "players" : []}]
               }
 
 class ClientClass:
@@ -36,7 +36,7 @@ class ClientClass:
         self.handleUser()
 
     def quit(self):
-        print(Fore.RED, f'Someone quit : {self.clientAdress} - getNickname')
+        print(Fore.RED, f'Someone quit : {self.clientAdress} - {self.currentState}')
         self.clientValue.close()
         del connectionDict[f"{self.clientAdress[0]};{self.clientAdress[1]}"]
         if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
@@ -69,9 +69,9 @@ class ClientClass:
                         self.gameMode = userMsg[1][9:]
                         self.clientValue.send(f'continue|{len(partyLists[self.gameMode])-1}'.encode("utf-8"))
                         break
-                    elif userMsg[0] == 'button' and userMsg[1] == 'createGame':
+                    elif userMsg[0] == 'button' and userMsg[1] == 'createLobby':
                         self.clientValue.send('continue|skip'.encode("utf-8"))
-                        self.currentState = "createGame"
+                        self.currentState = "createLobby"
                         break
                 
                 #joinLobby
@@ -106,8 +106,12 @@ class ClientClass:
                 while self.currentState == "createLobby":
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                     except ConnectionResetError: self.quit()
-
-                    if (len(userMsg) == 1 and userMsg[0] != "wait") or (len(userMsg) == 2 and userMsg[0] != "create"): self.quit()
+                    if len(userMsg) != 2 or userMsg[0] != "create" or userMsg[1] not in ["VS", "COOP"]: self.quit()
+                    self.gameMode = userMsg[1]
+                    partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
+                    tempIndex = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
+                    self.clientValue.send(f"joined|{tempIndex}".encode("utf-8"))
+                    self.currentState = "waitGame"
 
                 while self.currentState == "waitGame":
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
@@ -134,6 +138,7 @@ class ClientClass:
         except ConnectionAbortedError:
             print(Fore.RED, f'{self.clientAdress} was kicked')
             self.clientValue.close()
+            del connectionDict[f"{self.clientAdress[0]};{self.clientAdress[1]}"]
 
 def executeAdmin():
     global exitProgramm
@@ -207,6 +212,8 @@ def updatePartyList():
     while True:
         for gameMode in ["VS", "COOP"]:
             for party in range(1, len(partyLists[gameMode])):
+                for player in partyLists[gameMode][party]["players"]: 
+                    if f"{player[0][0]};{player[0][1]}" not in list(connectionDict.keys()): partyLists[gameMode][party]["players"].remove(player)
                 if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
                 elif len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
                 elif len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
