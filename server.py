@@ -90,7 +90,8 @@ class ClientClass:
                     elif userMsg[0] == "button" and int(userMsg[1]) < len(partyLists[self.gameMode]):
                         if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
                         else:
-                            partyLists[self.gameMode][int(userMsg[1])]["players"].append([self.clientAdress, self.clientName])
+                            self.gameNumber = int(userMsg[1])
+                            partyLists[self.gameMode][self.gameNumber]["players"].append([self.clientAdress, self.clientName])
                             if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: 
                                 partyLists[self.gameMode][int(userMsg[1])]["state"] = "FULL"
                                 self.currentState = "inGame"
@@ -109,16 +110,22 @@ class ClientClass:
                     if len(userMsg) != 2 or userMsg[0] != "create" or userMsg[1] not in ["VS", "COOP"]: self.quit()
                     self.gameMode = userMsg[1]
                     partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-                    tempIndex = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-                    self.clientValue.send(f"joined|{tempIndex}".encode("utf-8"))
+                    self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
+                    self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
                     self.currentState = "waitGame"
 
                 while self.currentState == "waitGame":
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                     except ConnectionResetError: self.quit()
                     
-                    if len(userMsg) != 2 or userMsg[0] != "waiting" or int(userMsg[1]) >= len(partyLists[self.gameMode]): self.quit()
+                    if len(userMsg) != 2 or userMsg[0] not in ["waiting","quit"] or (userMsg[0] == "waiting" and int(userMsg[1]) >= len(partyLists[self.gameMode])): self.quit()
                     
+                    if userMsg[0] == "quit":
+                        self.currentState = "mainLobby"
+                        partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
+                        self.gameNumber = 0
+                        self.clientValue.send(f'mainLobby|None'.encode("utf-8"))
+                        break
                     if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2:
                         self.currentState = "inGame"
                         self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
