@@ -15,11 +15,14 @@ connectionDict = {}
 threadDict = {}
 exitProgramm = False
 
-gameInfos = [{}]
-
 partyLists = {
               "VS"   : [{"state" : None, "players" : []}],
               "COOP" : [{"state" : None, "players" : []}]
+              }
+
+gameInfos  = {
+              "VS"   : [{}],
+              "COOP" : [{}]
               }
 
 class ClientClass:
@@ -110,6 +113,8 @@ class ClientClass:
                     if len(userMsg) != 2 or userMsg[0] != "create" or userMsg[1] not in ["VS", "COOP"]: self.quit()
                     self.gameMode = userMsg[1]
                     partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
+                    if self.gameMode == "VS": pass
+                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
                     self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
                     self.currentState = "waitGame"
@@ -133,15 +138,14 @@ class ClientClass:
                     else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
                     
                 while self.currentState == "inGame":
-                    try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-                    except ConnectionResetError: self.quit()
-                    
-                    if len(userMsg) != 2 or userMsg[0] != "packets": self.quit()
-                    
-                    userMsg = userMsg[1].split("|", 2)
-                    if len(userMsg) != 3: self.quit()
-                    gameInfos[self.playerNumber]["coords"][0] += self.mX
-                    gameInfos[self.playerNumber]["coords"][1] += self.mY
+                    if self.gameMode == "VS": pass
+                    elif self.gameMode == "COOP":
+                        try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 2)
+                        except ConnectionResetError: self.quit() #Handle midGame dc here
+                        if len(userMsg) != 3 or userMsg[0] != "infos": self.quit() #Handle midGame dc here
+                        gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = eval(userMsg[1])
+                        if userMsg[2] != "None": pass #Shoot rocket here
+                        self.clientValue.send(f"infos|{gameInfos['COOP'][self.gameNumber]['lives']}|{gameInfos['COOP'][self.gameNumber]['score']}|{gameInfos['COOP'][self.gameNumber]['ennemies']}|{gameInfos['COOP'][self.gameNumber]['players'][self.playerNumber]}|{gameInfos['COOP'][self.gameNumber]['players'][self.playerNumber-1]}".encode("utf-8"))
         except ConnectionAbortedError:
             print(Fore.RED, f'{self.clientAdress} was kicked')
             self.clientValue.close()
@@ -155,6 +159,7 @@ def executeAdmin():
                    "cls"     : f"{Fore.WHITE} MAN CLS - Clears the server command shell",
                    "echo"    : f"{Fore.WHITE} MAN ECHO - Writes anything to the server log shell",
                    "execas"  : f"{Fore.WHITE} MAN EXECAS - ... Empty ... For now!",
+                   "gamels"  : f"{Fore.WHITE} MAN PARTYLS - Returns the value of the variable : gameInfos",
                    "kick"    : f"{Fore.WHITE} MAN KICK - Kicks an IP;PORT; example : '$>kick 127.0.0.1;20201'",
                    "list"    : f"{Fore.WHITE} MAN LIST - Returns the list of connected IPs",
                    "man"     : f"{Fore.WHITE} MAN MAN - RTFM",
@@ -202,6 +207,7 @@ def executeAdmin():
         elif splitedCommand[0] == "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
         elif splitedCommand[0] == "execas": print(Fore.CYAN, "Commin' soon!")
         elif splitedCommand[0] == "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
+        elif splitedCommand[0] == "gamels": print(Fore.CYAN, "Here is the gameInfos :", gameInfos)
 
 def main():
     while True:
