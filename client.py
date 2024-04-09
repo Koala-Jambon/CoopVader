@@ -14,6 +14,8 @@ class App:
         self.loadedParties = [None, None, None]
         self.mainLobbyButton = 0
         self.joinLobbyButton = 0
+        self.createLobbyButton = 0
+        self.createLobbyButton2 = 0
         self.userNickname =  ""
         self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
@@ -72,10 +74,10 @@ class App:
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
             elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1]
-            elif self.mainLobbyButton == 3: self.currentState = "createGame"
+            elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
             srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-            if self.currentState == "waitGame" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1
+            if self.currentState == "createLobby" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1
             if self.currentState == "joinLobby": 
                 if len(srvMsg) != 2 or srvMsg[0] != "continue": return 1
                 self.numberOfParties = int(srvMsg[1])
@@ -103,6 +105,7 @@ class App:
             if self.joinLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 self.currentState = "mainLobby"
+                self.gameMode = ""
             else:
                 self.client.send(f'button|{self.joinLobbyButton}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
@@ -141,7 +144,36 @@ class App:
         pyxel.text(100, 60, f'{self.loadedParties[1]}', 7)
         pyxel.text(100, 80, f'{self.loadedParties[2]}', 7)
         return 0
-    
+
+    def update_createLobby(self):
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.createLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8"))
+                self.currentState = "mainLobby"
+            elif self.createLobbyButton == 2:
+                self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
+                self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
+                srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+                if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
+                self.gameNumber = int(srvMsg[1])
+                self.createLobbyButton = 0
+            return 0
+
+        if self.createLobbyButton == 1:
+            for NAVIGATION_KEY in [pyxel.KEY_RIGHT, pyxel.KEY_LEFT]:
+                if pyxel.btnp(NAVIGATION_KEY):
+                    self.createLobbyButton2 += [pyxel.KEY_RIGHT, pyxel.KEY_LEFT].index(NAVIGATION_KEY) * 2 - 1
+                    break   
+
+        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.createLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
+                break
+        
+        if self.createLobbyButton >= 3: self.createLobbyButton = 0
+        if self.createLobbyButton == -1: self.createLobbyButton = 3
+        return 0
+
     def update_waitGame(self):
         self.client.send(f"waiting|{self.gameNumber}".encode("utf-8"))
         srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
@@ -153,11 +185,11 @@ class App:
         sleep(1)
 
         return 0
-
-    def update_createLobby(self):
-        return 0
-
+    
     def draw_createLobby(self):
+        pyxel.text(0, 0, f'{self.createLobbyButton}', 7)
+        pyxel.text(100, 64, f'{["quit", "Button", "Create"][self.createLobbyButton]}',7)
+        if self.createLobbyButton == 1: pyxel.text(100, 80, f'{["VS", "COOP"][self.createLobbyButton2]}', 7)
         return 0
 
     def draw_waitGame(self):
