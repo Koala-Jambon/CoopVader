@@ -8,6 +8,8 @@ class App:
     def __init__(self, client) -> None:
         self.client = client
 
+        self.gameInfos = []
+
         self.gameMode = ""
         self.gameNumber = 0
         self.latestJoinButton = -1
@@ -73,7 +75,8 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}][self.mainLobbyButton-1]
+
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
             srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
@@ -152,6 +155,8 @@ class App:
                 self.currentState = "mainLobby"
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
+                if self.gameMode == "VS": pass #VSMODE
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -204,9 +209,29 @@ class App:
         return 0
     
     def update_inGame(self):
+        if self.gameMode == "VS": pass
+        elif self.gameMode == "COOP":
+            if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1
+            elif pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 1
+            elif pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1
+            elif pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 1
+
+            self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|None".encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 5)
+            if len(srvMsg) != 6 or srvMsg[0] != "infos": self.quit()
+
+            self.gameInfos["lives"] = int(srvMsg[1])
+            self.gameInfos["score"] = int(srvMsg[2])
+            self.gameInfos["ennemies"] = eval(srvMsg[3])
+            self.gameInfos["players"][0] = eval(srvMsg[4]) 
+            self.gameInfos["players"][1] = eval(srvMsg[5])
         return 0
 
     def draw_inGame(self):
+        pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
+        pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
         return 0
 
 if __name__ == "__main__":
