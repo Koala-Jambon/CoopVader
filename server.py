@@ -145,7 +145,8 @@ class ClientClass:
                         if len(userMsg) != 3 or userMsg[0] != "infos": self.quit() #Handle midGame dc here
                         gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = eval(userMsg[1])
                         if userMsg[2] != "None": pass #Shoot rocket here
-                        self.clientValue.send(f"infos|{gameInfos['COOP'][self.gameNumber]['lives']}|{gameInfos['COOP'][self.gameNumber]['score']}|{gameInfos['COOP'][self.gameNumber]['ennemies']}|{gameInfos['COOP'][self.gameNumber]['players'][self.playerNumber]}|{gameInfos['COOP'][self.gameNumber]['players'][self.playerNumber-1]}".encode("utf-8"))
+                        tempInfos = gameInfos['COOP'][self.gameNumber]
+                        self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos['ennemies']}|{tempInfos['players'][self.playerNumber]}|{tempInfos['players'][self.playerNumber-1]}".encode("utf-8"))
         except ConnectionAbortedError:
             print(Fore.RED, f'{self.clientAdress} was kicked')
             self.clientValue.close()
