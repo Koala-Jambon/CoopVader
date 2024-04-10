@@ -220,7 +220,12 @@ def executeAdmin():
                 print(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
             else: print(Fore.BLUE, f'{splitedCommand[1]} is not banned')
         elif splitedCommand[0] == "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
-        elif splitedCommand[0] == "execas": print(Fore.CYAN, "Commin' soon!")
+        elif splitedCommand[0] == "execas": 
+            splitedCommand = splitedCommand[1].split(" ", 1)
+            if splitedCommand[0] not in list(connectionDict.keys()): 
+                print(Fore.CYAN, f"'{splitedCommand[0]}' is not connected")
+                continue
+            connectionDict[splitedCommand[0]].send(f'execas|{splitedCommand[1]}%'.encode("utf-8"))
         elif splitedCommand[0] == "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
         elif splitedCommand[0] == "gamels": print(Fore.CYAN, "Here is the gameInfos :", gameInfos)
 
@@ -256,7 +261,9 @@ def higherRockets():
             for game in range(1, len(gameInfos[gameMode])):
                 for rocket in range(len(gameInfos[gameMode][game]["rockets"])):
                     gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
-                    if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
+                    try: 
+                        if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
+                    except: pass
         sleep(0.01)
                 
 
