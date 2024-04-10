@@ -3,6 +3,7 @@ import socket
 import threading
 import os
 from colorama import Fore
+from time import sleep
 
 # Initialisation du serveur sur le port `20101`
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
@@ -42,6 +43,7 @@ class ClientClass:
         print(Fore.RED, f'Someone quit : {self.clientAdress} - {self.currentState}')
         self.clientValue.close()
         del connectionDict[f"{self.clientAdress[0]};{self.clientAdress[1]}"]
+        if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
         if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
         exit(1)
 
@@ -110,11 +112,14 @@ class ClientClass:
                 while self.currentState == "createLobby":
                     try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
                     except ConnectionResetError: self.quit()
-                    if len(userMsg) != 2 or userMsg[0] != "create" or userMsg[1] not in ["VS", "COOP"]: self.quit()
+                    if len(userMsg) != 2 or userMsg[0] not in ["create", "button"] or userMsg[1] not in ["VS", "COOP", "quit"]: self.quit()
+                    if userMsg[0] == "button" and userMsg[1] == "quit": 
+                        self.currentState = "mainLobby"
+                        break
                     self.gameMode = userMsg[1]
                     partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     if self.gameMode == "VS": pass
-                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
+                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [],"players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
                     self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
                     self.currentState = "waitGame"
@@ -140,13 +145,22 @@ class ClientClass:
                 while self.currentState == "inGame":
                     if self.gameMode == "VS": pass
                     elif self.gameMode == "COOP":
-                        try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 2)
-                        except ConnectionResetError: self.quit() #Handle midGame dc here
-                        if len(userMsg) != 3 or userMsg[0] != "infos": self.quit() #Handle midGame dc here
+                        if gameInfos['COOP'][self.gameNumber]["ended"] == "quit":
+                            self.clientValue.send('main|quit%'.encode("utf-8"))
+                            partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
+                            gameInfos['COOP'][self.gameNumber]["ended"] = "None"
+                            self.currentState = "mainLobby"
+                            self.gameMode = ""
+                            self.gameNumber = 0
+                            self.playerNumber = 0
+                            break
+                        try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('%',1)[0].split('|', 2)
+                        except ConnectionResetError: self.quit()
+                        if len(userMsg) != 3 or userMsg[0] != "infos": self.quit()
                         gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = eval(userMsg[1])
-                        if userMsg[2] != "None": pass #Shoot rocket here
                         tempInfos = gameInfos['COOP'][self.gameNumber]
-                        self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos['ennemies']}|{tempInfos['players'][self.playerNumber]}|{tempInfos['players'][self.playerNumber-1]}".encode("utf-8"))
+                        if userMsg[2] != "None": gameInfos["COOP"][self.gameNumber]["rockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+                        self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos['ennemies']}|{tempInfos['rockets']}|{tempInfos['players'][self.playerNumber]}|{tempInfos['players'][self.playerNumber-1]}%".encode("utf-8"))
         except ConnectionAbortedError:
             print(Fore.RED, f'{self.clientAdress} was kicked')
             self.clientValue.close()
@@ -226,11 +240,25 @@ def updatePartyList():
     while True:
         for gameMode in ["VS", "COOP"]:
             for party in range(1, len(partyLists[gameMode])):
-                for player in partyLists[gameMode][party]["players"]: 
-                    if f"{player[0][0]};{player[0][1]}" not in list(connectionDict.keys()): partyLists[gameMode][party]["players"].remove(player)
-                if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
-                elif len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
-                elif len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
+                try: 
+                    if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
+                except IndexError: pass
+                try:
+                    if len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
+                except IndexError: pass
+                try:
+                    if len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
+                except IndexError: pass
+
+def higherRockets():
+    while True:
+        for gameMode in ["VS", "COOP"]:
+            for game in range(1, len(gameInfos[gameMode])):
+                for rocket in range(len(gameInfos[gameMode][game]["rockets"])):
+                    gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
+                    if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
+        sleep(0.01)
+                
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
@@ -241,6 +269,7 @@ if __name__ == "__main__":
     threading.Thread(target=main, daemon=True).start()
     threading.Thread(target=executeAdmin, daemon=True).start()
     threading.Thread(target=updatePartyList, daemon=True).start()
+    threading.Thread(target=higherRockets, daemon=True).start()
     
     while not exitProgramm: pass
     
