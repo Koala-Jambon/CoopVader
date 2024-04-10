@@ -2,6 +2,7 @@ import pyxel
 import os
 import socket
 from time import sleep
+import threading
 
 class App:
 
@@ -12,6 +13,7 @@ class App:
 
         self.gameMode = ""
         self.gameNumber = 0
+        self.shotDelay = -1
         self.latestJoinButton = -1
         self.loadedParties = [None, None, None]
         self.mainLobbyButton = 0
@@ -75,7 +77,7 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}][self.mainLobbyButton-1]
 
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
@@ -120,6 +122,7 @@ class App:
                     return 0
                 elif srvMsg[1] == "playing":
                     self.currentState = "inGame"
+                    threading.Thread(target=self.getSrvMsgCOOP).start()
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -156,7 +159,7 @@ class App:
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
                 if self.gameMode == "VS": pass #VSMODE
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -178,7 +181,13 @@ class App:
         if self.createLobbyButton >= 3: self.createLobbyButton = 0
         if self.createLobbyButton == -1: self.createLobbyButton = 3
         return 0
-
+    
+    def draw_createLobby(self):
+        pyxel.text(0, 0, f'{self.createLobbyButton}', 7)
+        pyxel.text(100, 64, f'{["quit", "Button", "Create"][self.createLobbyButton]}',7)
+        if self.createLobbyButton == 1: pyxel.text(100, 80, f'{["VS", "COOP"][self.createLobbyButton2]}', 7)
+        return 0
+    
     def update_waitGame(self):
         if pyxel.btnp(pyxel.KEY_SPACE): 
             self.client.send(f"quit|None".encode("utf-8"))
@@ -193,15 +202,10 @@ class App:
             if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
             elif srvMsg[0] == "inGame":
                 self.currentState = "inGame"
+                threading.Thread(target=self.getSrvMsgCOOP).start() 
                 self.gameNumber = int(srvMsg[1])
             sleep(1)
 
-        return 0
-    
-    def draw_createLobby(self):
-        pyxel.text(0, 0, f'{self.createLobbyButton}', 7)
-        pyxel.text(100, 64, f'{["quit", "Button", "Create"][self.createLobbyButton]}',7)
-        if self.createLobbyButton == 1: pyxel.text(100, 80, f'{["VS", "COOP"][self.createLobbyButton2]}', 7)
         return 0
 
     def draw_waitGame(self):
@@ -211,20 +215,21 @@ class App:
     def update_inGame(self):
         if self.gameMode == "VS": pass
         elif self.gameMode == "COOP":
+            action = "None"
+            if self.shotDelay == 20: self.shotDelay = -1
+
             if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1
-            elif pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 1
-            elif pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1
-            elif pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 1
+            if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 1
+            if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1
+            if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 1
+            if pyxel.btnp(pyxel.KEY_SPACE) and self.shotDelay == -1: action, self.shotDelay = "Shot", 0
+            elif self.shotDelay != -1: self.shotDelay += 1
 
-            self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|None".encode("utf-8"))
-            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 5)
-            if len(srvMsg) != 6 or srvMsg[0] != "infos": self.quit()
-
-            self.gameInfos["lives"] = int(srvMsg[1])
-            self.gameInfos["score"] = int(srvMsg[2])
-            self.gameInfos["ennemies"] = eval(srvMsg[3])
-            self.gameInfos["players"][0] = eval(srvMsg[4]) 
-            self.gameInfos["players"][1] = eval(srvMsg[5])
+            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
+            elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
+            if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
+            if self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
+            self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|{action}%".encode("utf-8"))
         return 0
 
     def draw_inGame(self):
@@ -232,7 +237,33 @@ class App:
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
         pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
+        ###Vraiment inutile, n'hésite pas à delete les 4 lignes suivantes :
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
+        ###FIN DES LIGNES INUTILSE
+        for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
+
+    def getSrvMsgCOOP(self):
+        while self.currentState == "inGame":
+            srvMsg = self.client.recv(1024).decode("utf-8").split('%', 1)[0].split('|', 6)
+            if srvMsg[0] == "main":
+                self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
+                break
+            if len(srvMsg) != 7 or srvMsg[0] != "infos": return 1
+
+            tempCoords = self.gameInfos["players"][0]["coords"]
+
+            self.gameInfos["lives"] = int(srvMsg[1])
+            self.gameInfos["score"] = int(srvMsg[2])
+            self.gameInfos["ennemies"] = eval(srvMsg[3])
+            self.gameInfos["rockets"] = eval(srvMsg[4])
+            self.gameInfos["players"][0] = eval(srvMsg[5]) 
+            self.gameInfos["players"][1] = eval(srvMsg[6])
+
+            self.gameInfos["players"][0]["coords"] = tempCoords
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
