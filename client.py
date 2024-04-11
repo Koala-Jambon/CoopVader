@@ -77,7 +77,7 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [[3, 45, 50]], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}][self.mainLobbyButton-1]
 
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
@@ -159,7 +159,7 @@ class App:
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
                 if self.gameMode == "VS": pass #VSMODE
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [[3, 45, 50]], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -244,6 +244,7 @@ class App:
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
         ###FIN DES LIGNES INUTILSE
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
+        for ennemy in self.gameInfos["ennemies"]: pyxel.rect(ennemy[1], ennemy[2], [14, 13, 11, 12, 9][ennemy[0]], [9, 11, 7, 10, 8][ennemy[0]], [13, 8, 14, 11, 5][ennemy[0]])
         return 0
 
     def getSrvMsgCOOP(self):
