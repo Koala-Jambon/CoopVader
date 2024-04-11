@@ -119,7 +119,7 @@ class ClientClass:
                     self.gameMode = userMsg[1]
                     partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     if self.gameMode == "VS": pass
-                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [],"players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
+                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
                     self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
                     self.currentState = "waitGame"
@@ -156,6 +156,8 @@ class ClientClass:
                             break
                         try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('%',1)[0].split('|', 2)
                         except ConnectionResetError: self.quit()
+                        tempPlayerInfos = gameInfos["COOP"][self.gameNumber]["players"]
+                        for ennemy in gameInfos["COOP"][self.gameNumber]["ennemies"]: pass
                         if len(userMsg) != 3 or userMsg[0] != "infos": self.quit()
                         gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = eval(userMsg[1])
                         tempInfos = gameInfos['COOP'][self.gameNumber]
@@ -245,7 +247,7 @@ def updatePartyList():
     while True:
         for gameMode in ["VS", "COOP"]:
             for party in range(1, len(partyLists[gameMode])):
-                try:
+                try: 
                     if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
                 except IndexError: pass
                 try:
@@ -260,11 +262,11 @@ def higherRockets():
         for gameMode in ["VS", "COOP"]:
             for game in range(1, len(gameInfos[gameMode])):
                 for rocket in range(len(gameInfos[gameMode][game]["rockets"])):
-                    try:
-                        gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
+                    gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
+                    try: 
                         if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
-                    except IndexError: pass
-        sleep(0.001)
+                    except: pass
+        sleep(0.01)
                 
 
 if __name__ == "__main__":
