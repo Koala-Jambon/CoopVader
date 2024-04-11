@@ -261,10 +261,10 @@ def higherRockets():
             for game in range(1, len(gameInfos[gameMode])):
                 for rocket in range(len(gameInfos[gameMode][game]["rockets"])):
                     try:
-                        gameInfos[gameMode][game]["rockets"][rocket][1] -= 10 
+                        gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
                         if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
                     except IndexError: pass
-        sleep(0.1)
+        sleep(0.001)
                 
 
 if __name__ == "__main__":

