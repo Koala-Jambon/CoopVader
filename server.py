@@ -245,7 +245,7 @@ def updatePartyList():
     while True:
         for gameMode in ["VS", "COOP"]:
             for party in range(1, len(partyLists[gameMode])):
-                try: 
+                try:
                     if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
                 except IndexError: pass
                 try:
@@ -260,11 +260,11 @@ def higherRockets():
         for gameMode in ["VS", "COOP"]:
             for game in range(1, len(gameInfos[gameMode])):
                 for rocket in range(len(gameInfos[gameMode][game]["rockets"])):
-                    gameInfos[gameMode][game]["rockets"][rocket][1] -= 1
-                    try: 
+                    try:
+                        gameInfos[gameMode][game]["rockets"][rocket][1] -= 10 
                         if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
-                    except: pass
-        sleep(0.01)
+                    except IndexError: pass
+        sleep(0.1)
                 
 
 if __name__ == "__main__":
