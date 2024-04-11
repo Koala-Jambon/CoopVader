@@ -119,7 +119,7 @@ class ClientClass:
                     self.gameMode = userMsg[1]
                     partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     if self.gameMode == "VS": pass
-                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [0,0], "bonus": 0}, {"coords": [100,100], "bonus": 0}]})
+                    elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [10, 218], "bonus": 0}, {"coords": [30, 218], "bonus": 0}]})
                     self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
                     self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
                     self.currentState = "waitGame"
