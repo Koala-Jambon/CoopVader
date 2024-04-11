@@ -179,7 +179,7 @@ class App:
                 break
         
         if self.createLobbyButton >= 3: self.createLobbyButton = 0
-        if self.createLobbyButton == -1: self.createLobbyButton = 3
+        if self.createLobbyButton == -1: self.createLobbyButton = 2
         return 0
     
     def draw_createLobby(self):
