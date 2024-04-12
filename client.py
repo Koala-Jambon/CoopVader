@@ -7,27 +7,31 @@ import threading
 class App:
 
     def __init__(self, client) -> None:
+        
+        #Useful: 
         self.client = client
+        self.currentState = "getNickname"
+        
+        #Buttons:
+        self.mainLobbyButton, self.joinLobbyButton, self.latestJoinButton, self.createLobbyButton, self.createLobbyButton2 = 0, 0, -1, 0, 0
 
-        self.gameInfos = []
-
-        self.waitGameDots = 0
-        self.gameMode = ""
-        self.gameNumber = 0
-        self.shotDelay = -1
-        self.latestJoinButton = -1
-        self.loadedParties = [None, None, None]
-        self.mainLobbyButton = 0
-        self.joinLobbyButton = 0
-        self.createLobbyButton = 0
-        self.createLobbyButton2 = 0
-        self.userNickname =  ""
-        self.ALPHABET = "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        #getNickname:
+        self.userNickname, self.ALPHABET = "", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
                              pyxel.KEY_H, pyxel.KEY_I, pyxel.KEY_J, pyxel.KEY_K, pyxel.KEY_L, pyxel.KEY_M,
                              pyxel.KEY_N, pyxel.KEY_O, pyxel.KEY_P, pyxel.KEY_Q, pyxel.KEY_R, pyxel.KEY_S, pyxel.KEY_T,
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
-        self.currentState = "getNickname"
+
+        #joinLobby:
+        self.loadedParties = [None, None, None]
+        
+        #waitGame:
+        self.waitGameDots, self.gameMode, self.gameNumber = 0, "", 0
+        
+        #inGame:
+        self.gameInfos, self.shotDelay = [], -1
+
+        #Pyxel:
         pyxel.init(228, 128, title="Stars Invader")
         pyxel.image(0).load(0, 0, './ressources/layer1.png')
         pyxel.image(1).load(0, 0, './ressources/title.png')
