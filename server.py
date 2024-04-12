@@ -13,7 +13,6 @@ sock.listen()
 
 bannedIPs = []
 connectionDict = {}
-threadDict = {}
 exitProgramm = False
 
 partyLists = {
@@ -240,17 +239,6 @@ def executeAdmin():
         elif splitedCommand[0] == "stop":
             exitProgramm = True
             exit(0)
-def main():
-    while True:
-        newClient, newClientAdress = sock.accept()    
-        try:
-            if newClientAdress[0] in bannedIPs: 
-                print(Fore.BLUE, f'{newClientAdress}(banned) tried to reconnect')
-                exit(0)
-            connectionDict[f"{newClientAdress[0]}:{newClientAdress[1]}"] = newClient
-            threadDict[f"{newClientAdress[0]}:{newClientAdress[1]}"] = threading.Thread(target=ClientClass, args=(newClient, newClientAdress), daemon=True)
-            threadDict[f"{newClientAdress[0]}:{newClientAdress[1]}"].start()
-        except: newClient.close()
 
 def updatePartyList():
     while True:
@@ -276,7 +264,17 @@ def higherRockets():
                         if gameInfos[gameMode][game]["rockets"][rocket][1] < 0: gameInfos[gameMode][game]["rockets"].pop(rocket)
                     except: pass
         sleep(0.01)
-                
+
+def main():
+    while True:
+        newClient, newClientAdress = sock.accept()    
+        try:
+            if newClientAdress[0] in bannedIPs: 
+                print(Fore.BLUE, f'{newClientAdress}(banned) tried to reconnect')
+                exit(0)
+            connectionDict[f"{newClientAdress[0]}:{newClientAdress[1]}"] = newClient
+            threading.Thread(target=ClientClass, args=(newClient, newClientAdress), daemon=True).start()
+        except: newClient.close()
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
