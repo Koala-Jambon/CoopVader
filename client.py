@@ -2,6 +2,7 @@ import pyxel
 import os
 import socket
 from time import sleep
+from math import floor
 import threading
 
 class App:
@@ -11,6 +12,7 @@ class App:
 
         self.gameInfos = []
 
+        self.waitGameDots = 0
         self.gameMode = ""
         self.gameNumber = 0
         self.shotDelay = -1
@@ -95,14 +97,22 @@ class App:
             if pyxel.btnp(NAVIGATION_KEY):
                 self.mainLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
                 break
+        for NAVIGATION_KEY in [pyxel.KEY_LEFT, pyxel.KEY_RIGHT]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.mainLobbyButton += [pyxel.KEY_LEFT, pyxel.KEY_RIGHT].index(NAVIGATION_KEY) * 2 - 1
+                break
         
         if self.mainLobbyButton >= 4: self.mainLobbyButton = 0
         if self.mainLobbyButton == -1: self.mainLobbyButton = 3
         return 0
 
     def draw_mainLobby(self):
-        pyxel.text(0, 0, f'{self.mainLobbyButton}', 7)
-        pyxel.text(100, 64, f'{["quit", "join1v1", "joinCO-OP", "create"][self.mainLobbyButton]}',7)
+        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.text(20, 50, "Rejoindre une partie", [1, 7, 7, 1][self.mainLobbyButton])
+        pyxel.text(20, 64, "1V1", [0, 7, 1, 0][self.mainLobbyButton])
+        pyxel.text(45, 64, "CO-OP", [0, 1, 7, 0][self.mainLobbyButton])
+        pyxel.text(20, 78, "Creer une partie", [1, 1, 1, 7][self.mainLobbyButton])
+        pyxel.text(20, 92, "Quitter", [7, 1, 1, 1][self.mainLobbyButton])
         return 0
     
     def update_joinLobby(self):
@@ -144,11 +154,11 @@ class App:
         return 0
     
     def draw_joinLobby(self):
-        pyxel.text(0, 0, f'{self.joinLobbyButton}', 7)
-        pyxel.text(20, 20, f'{["quit" if self.joinLobbyButton == 0 else "select" for x in range(1)][0]}', 7)
-        pyxel.text(100, 40, f'{self.loadedParties[0]}', 7)
-        pyxel.text(100, 60, f'{self.loadedParties[1]}', 7)
-        pyxel.text(100, 80, f'{self.loadedParties[2]}', 7)
+        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.text(100, 40, f'{self.loadedParties[0]}', [1, 7, 1, 1][self.joinLobbyButton])
+        pyxel.text(100, 60, f'{self.loadedParties[1]}', [1, 1, 7, 1][self.joinLobbyButton])
+        pyxel.text(100, 80, f'{self.loadedParties[2]}', [1, 1, 1, 7][self.joinLobbyButton])
+        pyxel.text(82, 100, 'Menu Principal', [7, 1, 1, 1][self.joinLobbyButton])
         return 0
 
     def update_createLobby(self):
@@ -183,9 +193,13 @@ class App:
         return 0
     
     def draw_createLobby(self):
-        pyxel.text(0, 0, f'{self.createLobbyButton}', 7)
-        pyxel.text(100, 64, f'{["quit", "Button", "Create"][self.createLobbyButton]}',7)
-        if self.createLobbyButton == 1: pyxel.text(100, 80, f'{["VS", "COOP"][self.createLobbyButton2]}', 7)
+        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.text(20, 50, "Mode de jeu", [1, 7, 1][self.createLobbyButton])
+        pyxel.text(20, 78, "Creer la partie", [1, 1, 7][self.createLobbyButton])
+        pyxel.text(20, 92, "Annuler", [7, 1, 1][self.createLobbyButton])
+        if self.createLobbyButton == 1:
+            pyxel.text(20, 64, "1V1", [7, 1][self.createLobbyButton2])
+            pyxel.text(45, 64, "CO-OP", [1, 7][self.createLobbyButton2])
         return 0
     
     def update_waitGame(self):
@@ -209,7 +223,12 @@ class App:
         return 0
 
     def draw_waitGame(self):
-        pyxel.text(0, 0, "Waiting", 7)
+        if self.waitGameDots == 3: self.waitGameDots = 0
+        self.waitGameDots += 1
+        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.text(90, 65, f"Waiting{'.' * self.waitGameDots}", 7)
+        pyxel.text(55, 80, "Appuyez sur [ESPACE] pour", 1)
+        pyxel.text(55, 90, "revenir au menu principal", 1)
         return 0
     
     def update_inGame(self):
@@ -237,7 +256,7 @@ class App:
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
         pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 0, 0, 16, 16)
         pyxel.blt(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 0, 16, 0, 16, 16)
-        ###Vraiment inutile, n'hésite pas à delete les 4 lignes suivantes :
+        ###Vraiment inutile, n'hesite pas à delete les 4 lignes suivantes :
         pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
         pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
@@ -277,7 +296,7 @@ if __name__ == "__main__":
     else: os.system("cls")
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try: client.connect(("localhost", 20101))
+    try: client.connect(("172.16.14.6", 20101))
     except OSError:
         print("Could not connect to the server: try updating; try later")
         exit()
