@@ -2,7 +2,6 @@ import pyxel
 import os
 import socket
 from time import sleep
-from math import floor
 import threading
 
 class App:
@@ -93,14 +92,14 @@ class App:
             self.mainLobbyButton = 0
             return 0
 
-        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
-            if pyxel.btnp(NAVIGATION_KEY):
-                self.mainLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
-                break
-        for NAVIGATION_KEY in [pyxel.KEY_LEFT, pyxel.KEY_RIGHT]:
-            if pyxel.btnp(NAVIGATION_KEY):
-                self.mainLobbyButton += [pyxel.KEY_LEFT, pyxel.KEY_RIGHT].index(NAVIGATION_KEY) * 2 - 1
-                break
+        if self.mainLobbyButton in [1, 2]:
+            if pyxel.btnp(pyxel.KEY_LEFT): self.mainLobbyButton += 1
+            elif pyxel.btnp(pyxel.KEY_RIGHT): self.mainLobbyButton += -1
+            if self.mainLobbyButton == 3: self.mainLobbyButton = 1
+            elif self.mainLobbyButton == 0: self.mainLobbyButton = 2
+
+        if pyxel.btnp(pyxel.KEY_UP): self.mainLobbyButton += [-1, -1, -2, -2][self.mainLobbyButton]
+        elif pyxel.btnp(pyxel.KEY_DOWN): self.mainLobbyButton += [1, 2, 1, 1][self.mainLobbyButton]
         
         if self.mainLobbyButton >= 4: self.mainLobbyButton = 0
         if self.mainLobbyButton == -1: self.mainLobbyButton = 3
@@ -108,11 +107,11 @@ class App:
 
     def draw_mainLobby(self):
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
-        pyxel.text(20, 50, "Rejoindre une partie", [1, 7, 7, 1][self.mainLobbyButton])
+        pyxel.text(20, 50, "REJOINDRE UNE PARTIE:", [1, 7, 7, 1][self.mainLobbyButton])
         pyxel.text(20, 64, "1V1", [0, 7, 1, 0][self.mainLobbyButton])
         pyxel.text(45, 64, "CO-OP", [0, 1, 7, 0][self.mainLobbyButton])
-        pyxel.text(20, 78, "Creer une partie", [1, 1, 1, 7][self.mainLobbyButton])
-        pyxel.text(20, 92, "Quitter", [7, 1, 1, 1][self.mainLobbyButton])
+        pyxel.text(20, 78, "CREER UNE PARTIE", [1, 1, 1, 7][self.mainLobbyButton])
+        pyxel.text(20, 92, "QUITTER", [7, 1, 1, 1][self.mainLobbyButton])
         return 0
     
     def update_joinLobby(self):
@@ -158,7 +157,7 @@ class App:
         pyxel.text(100, 40, f'{self.loadedParties[0]}', [1, 7, 1, 1][self.joinLobbyButton])
         pyxel.text(100, 60, f'{self.loadedParties[1]}', [1, 1, 7, 1][self.joinLobbyButton])
         pyxel.text(100, 80, f'{self.loadedParties[2]}', [1, 1, 1, 7][self.joinLobbyButton])
-        pyxel.text(82, 100, 'Menu Principal', [7, 1, 1, 1][self.joinLobbyButton])
+        pyxel.text(82, 100, 'MENU PRINCIPAL', [7, 1, 1, 1][self.joinLobbyButton])
         return 0
 
     def update_createLobby(self):
@@ -194,9 +193,9 @@ class App:
     
     def draw_createLobby(self):
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
-        pyxel.text(20, 50, "Mode de jeu", [1, 7, 1][self.createLobbyButton])
-        pyxel.text(20, 78, "Creer la partie", [1, 1, 7][self.createLobbyButton])
-        pyxel.text(20, 92, "Annuler", [7, 1, 1][self.createLobbyButton])
+        pyxel.text(20, 50, "MODE DE JEU:", [1, 7, 1][self.createLobbyButton])
+        pyxel.text(20, 78, "CREER LA PARTIE", [1, 1, 7][self.createLobbyButton])
+        pyxel.text(20, 92, "ANNULER", [7, 1, 1][self.createLobbyButton])
         if self.createLobbyButton == 1:
             pyxel.text(20, 64, "1V1", [7, 1][self.createLobbyButton2])
             pyxel.text(45, 64, "CO-OP", [1, 7][self.createLobbyButton2])
@@ -226,7 +225,7 @@ class App:
         if self.waitGameDots == 3: self.waitGameDots = 0
         self.waitGameDots += 1
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
-        pyxel.text(90, 65, f"Waiting{'.' * self.waitGameDots}", 7)
+        pyxel.text(90, 65, f"WAITING{'.' * self.waitGameDots}", 7)
         pyxel.text(55, 80, "Appuyez sur [ESPACE] pour", 1)
         pyxel.text(55, 90, "revenir au menu principal", 1)
         return 0
