@@ -16,17 +16,21 @@ class App:
         self.mainLobbyButton, self.joinLobbyButton, self.latestJoinButton, self.createLobbyButton, self.createLobbyButton2 = 0, 0, -1, 0, 0
 
         #getNickname:
-        self.userNickname, self.ALPHABET = "", "ABCDEFGHIJKLMNOPQRSTUVWXYZ"
+        self.userNickname, self.ALPHABET = "", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
         self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
                              pyxel.KEY_H, pyxel.KEY_I, pyxel.KEY_J, pyxel.KEY_K, pyxel.KEY_L, pyxel.KEY_M,
                              pyxel.KEY_N, pyxel.KEY_O, pyxel.KEY_P, pyxel.KEY_Q, pyxel.KEY_R, pyxel.KEY_S, pyxel.KEY_T,
-                             pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z]
+                             pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z,
+                             pyxel.KEY_1, pyxel.KEY_2, pyxel.KEY_3, pyxel.KEY_4, pyxel.KEY_5,
+                             pyxel.KEY_6, pyxel.KEY_7, pyxel.KEY_8, pyxel.KEY_9, pyxel.KEY_0,]
 
         #joinLobby:
         self.loadedParties = [None, None, None]
         
         #waitGame:
         self.waitGameDots, self.gameMode, self.gameNumber = 0, "", 0
+        
+        self.WaitMusic = False
         
         #inGame:
         self.gameInfos, self.shotDelay = [], -1
@@ -35,7 +39,9 @@ class App:
         pyxel.init(228, 128, title="Stars Invader")
         pyxel.image(0).load(0, 0, './ressources/layer1.png')
         pyxel.image(1).load(0, 0, './ressources/title.png')
+        pyxel.load('./ressources/ressources.pyxres')
         pyxel.run(self.update, self.draw)
+
 
     def update(self):
         status = getattr(self, f'update_{self.currentState}')()
@@ -64,7 +70,7 @@ class App:
             self.currentState = "mainLobby"
             return 0
         
-        for i in range(26):
+        for i in range(36):
             if pyxel.btnp(self.PYXEL_KEY_LETTERS[i]):
                 self.userNickname += self.ALPHABET[i]
                 return 0
@@ -227,6 +233,9 @@ class App:
         return 0
 
     def draw_waitGame(self):
+        if self.WaitMusic != True:
+            pyxel.play(0, 0)
+            self.WaitMusic = True
         if self.waitGameDots == 3: self.waitGameDots = 0
         self.waitGameDots += 1
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
@@ -299,7 +308,7 @@ if __name__ == "__main__":
     else: os.system("cls")
 
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-    try: client.connect(("172.16.14.6", 20101))
+    try: client.connect(("localhost", 20101))
     except OSError:
         print("Could not connect to the server: try updating; try later")
         exit()
