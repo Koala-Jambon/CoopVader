@@ -257,7 +257,7 @@ def higherRockets():
     while True:
         for gameMode in ["VS", "COOP"]:
             for game in range(1, len(gameInfos[gameMode])):
-                gameInfos[gameMode][game]["rockets"] = [rocket for rocket in gameInfos[gameMode][game]["rockets"] if (rocket[1] := rocket[1] - 1) >= 0]
+                gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1]] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - 1 >= 0]
         sleep(0.01)
 
 def main():
