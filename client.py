@@ -29,8 +29,7 @@ class App:
         
         #waitGame:
         self.waitGameDots, self.gameMode, self.gameNumber = 0, "", 0
-        
-        self.WaitMusic = False
+        self.musicPlayingWaitGame = False
         
         #inGame:
         self.gameInfos, self.shotDelay = [], -1
@@ -199,6 +198,8 @@ class App:
         
         if self.createLobbyButton >= 3: self.createLobbyButton = 0
         if self.createLobbyButton == -1: self.createLobbyButton = 2
+        if self.createLobbyButton2 >= 2: self.createLobbyButton2 = 0
+        if self.createLobbyButton2 == -1: self.createLobbyButton2 = 1
         return 0
     
     def draw_createLobby(self):
@@ -233,9 +234,9 @@ class App:
         return 0
 
     def draw_waitGame(self):
-        if self.WaitMusic != True:
-            pyxel.play(0, 0)
-            self.WaitMusic = True
+        if not self.musicPlayingWaitGame:
+            pyxel.play(0, 0, loop=True)
+            self.musicPlayingWaitGame = True
         if self.waitGameDots == 3: self.waitGameDots = 0
         self.waitGameDots += 1
         pyxel.blt(30, 5, 1, 5, 0, 167, 25)
