@@ -36,8 +36,6 @@ class App:
 
         #Pyxel:
         pyxel.init(228, 128, title="Stars Invader")
-        pyxel.image(0).load(0, 0, './ressources/layer1.png')
-        pyxel.image(1).load(0, 0, './ressources/title.png')
         pyxel.load('./ressources/ressources.pyxres')
         pyxel.run(self.update, self.draw)
 
@@ -76,7 +74,7 @@ class App:
         return 0
 
     def draw_getNickname(self):
-        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 13)
         pyxel.text((pyxel.width - len(self.userNickname)*4 ) / 2, pyxel.height/2, self.userNickname, 7)
         pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16, 0, 16, 16)
@@ -115,7 +113,7 @@ class App:
         return 0
 
     def draw_mainLobby(self):
-        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(20, 50, "REJOINDRE UNE PARTIE:", [1, 7, 7, 1][self.mainLobbyButton])
         pyxel.text(20, 64, "1V1", [0, 7, 1, 0][self.mainLobbyButton])
         pyxel.text(45, 64, "CO-OP", [0, 1, 7, 0][self.mainLobbyButton])
@@ -162,7 +160,7 @@ class App:
         return 0
     
     def draw_joinLobby(self):
-        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(100, 40, f'{self.loadedParties[0]}', [1, 7, 1, 1][self.joinLobbyButton])
         pyxel.text(100, 60, f'{self.loadedParties[1]}', [1, 1, 7, 1][self.joinLobbyButton])
         pyxel.text(100, 80, f'{self.loadedParties[2]}', [1, 1, 1, 7][self.joinLobbyButton])
@@ -203,7 +201,7 @@ class App:
         return 0
     
     def draw_createLobby(self):
-        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(20, 50, "MODE DE JEU:", [1, 7, 1][self.createLobbyButton])
         pyxel.text(20, 78, "CREER LA PARTIE", [1, 1, 7][self.createLobbyButton])
         pyxel.text(20, 92, "ANNULER", [7, 1, 1][self.createLobbyButton])
@@ -239,7 +237,7 @@ class App:
             self.musicPlayingWaitGame = True
         if self.waitGameDots == 3: self.waitGameDots = 0
         self.waitGameDots += 1
-        pyxel.blt(30, 5, 1, 5, 0, 167, 25)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(90, 65, f"WAITING{'.' * self.waitGameDots}", 7)
         pyxel.text(55, 80, "Appuyez sur [ESPACE] pour", 1)
         pyxel.text(55, 90, "revenir au menu principal", 1)
