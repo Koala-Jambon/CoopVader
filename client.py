@@ -244,24 +244,24 @@ class App:
         return 0
     
     def update_inGame(self):
-        pyxel.stop(0)
-        if self.gameMode == "VS": pass
-        elif self.gameMode == "COOP":
-            action = "None"
-            if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -2
-            if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
-            if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
-            if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
-            if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time()
+        action = "None"
+        if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -2
+        if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
+        if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
+        if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
+        if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time()
 
-            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
-            elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
-            if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
-            elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
-            self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|{action}%".encode("utf-8"))
+        if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
+        elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
+        if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
+        elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
+        self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|{action}%".encode("utf-8"))
+        if self.gameMode == "VS": pass
+        elif self.gameMode == "COOP": pass
         return 0
 
     def draw_inGame(self):
+        pyxel.stop(0)
         pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
         pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 0, 0, 16, 16)
