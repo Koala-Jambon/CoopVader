@@ -130,7 +130,7 @@ class ClientClass:
             self.gameMode = userMsg[1]
             partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
             if self.gameMode == "VS": pass
-            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [10, 218], "bonus": 0}, {"coords": [30, 218], "bonus": 0}]})
+            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [10, 218], "newRockets" : [], "ennemiesRem" : [], "bonus": 0}, {"coords": [30, 218], "newRockets" : [], "ennemiesRem" : [], "bonus": 0}]})
             self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
             self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
             self.currentState = "waitGame"
@@ -163,21 +163,22 @@ class ClientClass:
                 self.clientValue.send('main|quit%'.encode("utf-8"))
                 partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
                 gameInfos['COOP'][self.gameNumber]["ended"] = "None"
-                self.currentState = "mainLobby"
-                self.gameMode = ""
-                self.gameNumber = 0
-                self.playerNumber = 0
+                self.currentState, self.gameMode, self.gameNumber, self.playerNumber = "mainLobby", "", 0, 0
                 break
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('%',1)[0].split('|', 2)
+            # Maybe handle loose / win? Ended should be L or W instead of quit
+
+            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('%',1)[0].split('|', 3)
             except ConnectionResetError: self.quit()
             tempPlayerInfos = gameInfos["COOP"][self.gameNumber]["players"]
             for ennemy in gameInfos["COOP"][self.gameNumber]["ennemies"]: pass
-            if len(userMsg) != 3 or userMsg[0] != "infos": self.quit()
-            gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = eval(userMsg[1])
+            if len(userMsg) != 4 or userMsg[0] != "infos": print(userMsg); self.quit()
+            gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
             tempInfos = gameInfos['COOP'][self.gameNumber]
-            if userMsg[2] != "None": gameInfos["COOP"][self.gameNumber]["rockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-            self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos['ennemies']}|{tempInfos['rockets']}|{tempInfos['players'][self.playerNumber]}|{tempInfos['players'][self.playerNumber-1]}%".encode("utf-8"))
-
+            if userMsg[3] != "None": 
+                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos["players"][self.playerNumber]["ennemiesRem"]}|{tempInfos["players"][self.playerNumber]["newRockets"]}|{tempInfos['players'][self.playerNumber]["bonus"]}|{tempInfos['players'][self.playerNumber-1]["coords"]}|{tempInfos['players'][self.playerNumber-1]["bonus"]}%".encode("utf-8"))
+            gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"] = gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"] = []
 def executeAdmin():
     global exitProgramm
     instruction = {"ban"     : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
@@ -246,11 +247,7 @@ def updatePartyList():
             for party in range(1, len(partyLists[gameMode])):
                 try: 
                     if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
-                except IndexError: pass
-                try:
                     if len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
-                except IndexError: pass
-                try:
                     if len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
                 except IndexError: pass
 
