@@ -199,45 +199,46 @@ def executeAdmin():
         if command == "": continue
         with open('adminCommand.txt', 'w') as cmdFile: cmdFile.truncate(0)
         splitedCommand = command.split(" ", 1)
-        if splitedCommand[0] not in commandList: print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
-        elif splitedCommand[0] == "ban":
-            if splitedCommand[1] in bannedIPs: continue
-            for key in list(connectionDict.keys()):
-                if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[f'{key}'].close()
-            bannedIPs.append(splitedCommand[1])
-            print(Fore.BLUE, f'{splitedCommand[1]} was banned')
-        elif splitedCommand[0] == "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
-        elif splitedCommand[0] == "clear":
-            if os.name == "posix": os.system("clear")
-            else: os.system("cls")
-            print(Fore.RED, "Server Started")
-        elif splitedCommand[0] == "echo": print(Fore.WHITE, splitedCommand[1])
-        elif splitedCommand[0] == "execas": 
-            splitedCommand = splitedCommand[1].split(" ", 1)
-            for key in list(connectionDict.keys()):
-                if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[splitedCommand[0]].send(f'execas|{splitedCommand[1]}%'.encode("utf-8"))
-        elif splitedCommand[0] == "gamels": print(Fore.CYAN, "Here is the gameInfos :", gameInfos)
-        elif splitedCommand[0] == "kick":
-            if splitedCommand[1] not in list(connectionDict.keys()): 
-                print(Fore.CYAN, f"'{splitedCommand[1]}' cannot be kicked")
-                continue
-            connectionDict[f'{splitedCommand[1]}'].close()
-        elif splitedCommand[0] == "list": print(Fore.CYAN, "Here is a list of connected IPs :", list(connectionDict.keys()))
-        elif splitedCommand[0] == "man":
-            if len(splitedCommand) == 1:
-                print(Fore.CYAN, "Here is the list of available commands :")
-                for command in commandList: print(f"    -{command}")
-            elif splitedCommand[1] in commandList: print(Fore.CYAN, instruction[splitedCommand[1]])
-            else: print(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
-        elif splitedCommand[0] == "pardon":
-            if splitedCommand[1] in bannedIPs: 
-                bannedIPs.remove(splitedCommand[1])
-                print(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
-            else: print(Fore.BLUE, f'{splitedCommand[1]} is not banned')
-        elif splitedCommand[0] == "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
-        elif splitedCommand[0] == "stop":
-            exitProgramm = True
-            exit(0)
+        match splitedCommand[0]:	
+            case "ban":
+                if splitedCommand[1] in bannedIPs: continue
+                for key in list(connectionDict.keys()):
+                    if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[f'{key}'].close()
+                bannedIPs.append(splitedCommand[1])
+                print(Fore.BLUE, f'{splitedCommand[1]} was banned')
+            case "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
+            case "clear":
+                if os.name == "posix": os.system("clear")
+                else: os.system("cls")
+                print(Fore.RED, "Server Started")
+            case "echo": print(Fore.WHITE, splitedCommand[1])
+            case "execas":
+                splitedCommand = splitedCommand[1].split(" ", 1)
+                for key in list(connectionDict.keys()):
+                    if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[splitedCommand[0]].send(f'execas|{splitedCommand[1]}%'.encode("utf-8"))
+            case "gamels": print(Fore.CYAN, "Here is the gameInfos :", gameInfos)
+            case "kick": 
+                if splitedCommand[1] not in list(connectionDict.keys()): 
+                    print(Fore.CYAN, f"'{splitedCommand[1]}' cannot be kicked")
+                    continue
+                connectionDict[f'{splitedCommand[1]}'].close()
+            case "list": print(Fore.CYAN, "Here is a list of connected IPs :", list(connectionDict.keys()))
+            case "man":
+                if len(splitedCommand) == 1:
+                    print(Fore.CYAN, "Here is the list of available commands :")
+                    for command in commandList: print(f"    -{command}")
+                elif splitedCommand[1] in commandList: print(Fore.CYAN, instruction[splitedCommand[1]])
+                else: print(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
+            case "pardon":
+                if splitedCommand[1] in bannedIPs: 
+                    bannedIPs.remove(splitedCommand[1])
+                    print(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
+                else: print(Fore.BLUE, f'{splitedCommand[1]} is not banned')
+            case "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
+            case "stop": 
+                exitProgramm = True
+                exit(0)
+            case _: print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
 
 def updatePartyList():
     while True:
