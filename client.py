@@ -1,7 +1,7 @@
 import pyxel
 import os
 import socket
-from time import sleep
+from time import sleep, time
 import threading
 
 class App:
@@ -32,8 +32,7 @@ class App:
         self.musicPlayingWaitGame = False
         
         #inGame:
-        self.gameInfos, self.shotDelay = [], -1
-
+        self.gameInfos, self.lastShot = [], 0
         #Pyxel:
         pyxel.init(228, 128, title="Stars Invader")
         pyxel.load('./ressources/ressources.pyxres')
@@ -113,6 +112,7 @@ class App:
         return 0
 
     def draw_mainLobby(self):
+        pyxel.stop(0)
         pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(20, 50, "REJOINDRE UNE PARTIE:", [1, 7, 7, 1][self.mainLobbyButton])
         pyxel.text(20, 64, "1V1", [0, 7, 1, 0][self.mainLobbyButton])
@@ -244,22 +244,20 @@ class App:
         return 0
     
     def update_inGame(self):
+        pyxel.stop(0)
         if self.gameMode == "VS": pass
         elif self.gameMode == "COOP":
             action = "None"
-            if self.shotDelay == 20: self.shotDelay = -1
-
             if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -2
             if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
             if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
             if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
-            if pyxel.btnp(pyxel.KEY_SPACE) and self.shotDelay == -1: action, self.shotDelay = "Shot", 0
-            elif self.shotDelay != -1: self.shotDelay += 1
+            if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time()
 
             if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
             elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
             if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
-            if self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
+            elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
             self.client.send(f"infos|{self.gameInfos['players'][0]['coords']}|{action}%".encode("utf-8"))
         return 0
 
