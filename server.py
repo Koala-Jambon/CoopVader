@@ -3,7 +3,7 @@ import socket
 import threading
 import os
 from colorama import Fore
-from time import sleep
+from time import sleep, time
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -167,16 +167,17 @@ class ClientClass:
                 break
             # Maybe handle loose / win? Ended should be L or W instead of quit
 
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('%',1)[0].split('|', 3)
+            try: userMsg = self.clientValue.recv(1024).decode("utf-8")
             except ConnectionResetError: self.quit()
+            if "Shot" in userMsg:                 
+                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            userMsg = userMsg.split('%',1)[0].split('|', 3)
             tempPlayerInfos = gameInfos["COOP"][self.gameNumber]["players"]
             for ennemy in gameInfos["COOP"][self.gameNumber]["ennemies"]: pass
             if len(userMsg) != 4 or userMsg[0] != "infos": print(userMsg); self.quit()
             gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
             tempInfos = gameInfos['COOP'][self.gameNumber]
-            if userMsg[3] != "None": 
-                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
             self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos["players"][self.playerNumber]["ennemiesRem"]}|{tempInfos["players"][self.playerNumber]["newRockets"]}|{tempInfos['players'][self.playerNumber]["bonus"]}|{tempInfos['players'][self.playerNumber-1]["coords"]}|{tempInfos['players'][self.playerNumber-1]["bonus"]}%".encode("utf-8"))
             gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"] = gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"] = []
 def executeAdmin():
@@ -252,11 +253,15 @@ def updatePartyList():
                 except IndexError: pass
 
 def higherRockets():
+    rocketDelay = 0        
     while True:
+        curTime = time()
+        rocketDiff = round((curTime-rocketDelay) * 100)
+        if rocketDiff == 0: continue
+        rocketDelay = curTime
         for gameMode in ["VS", "COOP"]:
             for game in range(1, len(gameInfos[gameMode])):
                 gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - 1] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - 1 >= 0]
-        sleep(0.01)
 
 def main():
     while True:
