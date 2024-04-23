@@ -310,7 +310,8 @@ class App:
             rocketDiff = round((curTime-rocketDelay) * 100)
             if rocketDiff == 0: continue
             rocketDelay = curTime
-            self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
+            try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
+            except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
