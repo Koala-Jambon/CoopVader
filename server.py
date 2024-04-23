@@ -264,7 +264,7 @@ def higherRockets():
         rocketDelay = curTime
         for gameMode in ["VS", "COOP"]:
             for game in range(1, len(gameInfos[gameMode])):
-                gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - 1] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - 1 >= 0]
+                gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - rocketDiff] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - rocketDiff >= 0]
 
 def main():
     while True:
