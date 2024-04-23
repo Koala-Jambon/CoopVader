@@ -169,17 +169,20 @@ class ClientClass:
 
             try: userMsg = self.clientValue.recv(1024).decode("utf-8")
             except ConnectionResetError: self.quit()
-            if "Shot" in userMsg:                 
-                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-            userMsg = userMsg.split('%',1)[0].split('|', 3)
-            tempPlayerInfos = gameInfos["COOP"][self.gameNumber]["players"]
-            for ennemy in gameInfos["COOP"][self.gameNumber]["ennemies"]: pass
-            if len(userMsg) != 4 or userMsg[0] != "infos": print(userMsg); self.quit()
+            if "Shot" in userMsg:
+                userMsg = userMsg.split("%")
+                for msg in userMsg: 
+                    if "Shot" in msg: userMsg = msg.split('|', 3) ; break
+            else: userMsg = userMsg.split('%',1)[0].split('|', 3)
+            if len(userMsg) != 4 or userMsg[0] != "infos": self.quit()
             gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
             tempInfos = gameInfos['COOP'][self.gameNumber]
+            if userMsg[3] == "Shot":
+                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
             self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos["players"][self.playerNumber]["ennemiesRem"]}|{tempInfos["players"][self.playerNumber]["newRockets"]}|{tempInfos['players'][self.playerNumber]["bonus"]}|{tempInfos['players'][self.playerNumber-1]["coords"]}|{tempInfos['players'][self.playerNumber-1]["bonus"]}%".encode("utf-8"))
             gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"] = gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"] = []
+
 def executeAdmin():
     global exitProgramm
     instruction = {"ban"     : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
