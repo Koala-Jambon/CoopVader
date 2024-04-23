@@ -285,18 +285,20 @@ class App:
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
-            else: srvMsg = srvMsg.split('%', 1)[0].split('|', 7)
-            if srvMsg[0] == "main":
-                self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
-                break
-            if len(srvMsg) != 8 or srvMsg[0] != "infos": return 1
+            else: srvMsg = srvMsg.split('%', 1) ; srvMsg = [msg.split('|', 7) for msg in srvMsg if msg != ""]
+            for msg in srvMsg:
+                if msg[0] == "main":
+                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
+                    break
+                if len(msg) != 8 or msg[0] != "infos": return 1
+                ennToRem = eval(msg[3])
+                for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
+                rocToApp = eval(msg[4])
+                for rocket in rocToApp: self.gameInfos["rockets"].append(rocket) ; print(rocket)
+            srvMsg = srvMsg[0]
 
             self.gameInfos["lives"] = int(srvMsg[1])
             self.gameInfos["score"] = int(srvMsg[2])
-            ennToRem = eval(srvMsg[3])
-            for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
-            rocToApp = eval(srvMsg[4])
-            for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
             self.gameInfos["players"][0]["bonus"] = int(srvMsg[5]) 
             self.gameInfos["players"][1]["coords"] = eval(srvMsg[6])
             self.gameInfos["players"][1]["bonus"] = int(srvMsg[7])
@@ -304,9 +306,10 @@ class App:
     def higherRockets(self):
         rocketDelay = 0        
         while True: 
-            rocketDiff = round((time()-rocketDelay) * 100)
+            curTime = time()
+            rocketDiff = round((curTime-rocketDelay) * 100)
             if rocketDiff == 0: continue
-            rocketDelay = time()
+            rocketDelay = curTime
             self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
 
 if __name__ == "__main__":
