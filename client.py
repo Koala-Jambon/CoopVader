@@ -87,7 +87,7 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [10, 228], "bonus": 0}, {"coords": [30, 228], "bonus": 0}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [10, 228]}, {"coords": [30, 228]}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
@@ -180,7 +180,7 @@ class App:
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
                 if self.gameMode == "VS": pass #VSMODE
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [0,0], "bonus": 0}, {"coords": [0,0], "bonus": 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [0,0]}, {"coords": [0,0]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -252,12 +252,15 @@ class App:
     
     def update_inGame(self):
         action = "None"
-        MOV_CONST = 1 if self.gameInfos["players"][0]["bonus"] < 0 else 2
+        MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2
         if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += MOV_CONST
         if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += MOV_CONST
-        if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(self.gameInfos['players'][0]['coords'])
+        if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: 
+            tempCoords = self.gameInfos['players'][0]['coords']
+            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(tempCoords)
+            if self.gameInfos["bonus"] > 0: self.gameInfos['rockets'].append([tempCoords[0]+10, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-10, tempCoords[1]])
 
         if self.gameMode == "VS": pass
         elif self.gameMode == "COOP": 
@@ -274,7 +277,7 @@ class App:
         pyxel.stop(0)
         pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-        pyxel.text(0, 20, f"urBonus:{self.gameInfos["players"][0]["bonus"]}", 7)
+        pyxel.text(0, 20, f"urBonus:{self.gameInfos["bonus"]}", 7)
         pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
         ###Vraiment inutile, n'hesite pas à delete les 4 lignes suivantes :
@@ -321,10 +324,12 @@ class App:
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
         
     def bonusSystem(self):
+        global bonusList
+        bonusList, alreadyTaken = [], False
         while self.currentState == "inGame":
-            self.curBonus = [[randint(5, 220), randint(5, 120)], randint(0,1)]
-            lastBonus = time()
-            while time()-lastBonus <= 5:
+            self.curBonus, lastBonus, alreadyTaken = [[randint(5, 220), randint(5, 120)], randint(0,1)], time(), False
+            while time()-lastBonus <= 7:
+                if alreadyTaken: continue
                 tempInfos = self.gameInfos["players"][0]["coords"]
                 tempInfos = [(x, y) for x in range(tempInfos[0], tempInfos[0] + 15) for y in range(tempInfos[1], tempInfos[1] + 16)]
                 if  (
@@ -333,13 +338,16 @@ class App:
                     or ((self.curBonus[0][0]+8,self.curBonus[0][1]+8) in tempInfos)
                     or ((self.curBonus[0][0]+8,self.curBonus[0][1]) in tempInfos)
                     ): 
-                        self.gameInfos["players"][0]["bonus"] += self.curBonus[1] * 2 - 1
-                        threading.Thread(target=self.bonusTimer, args=[self.curBonus[1]], daemon=True).start()
-                        break
+                        bonusToApp = self.curBonus[1] * 2 - 1
+                        if -1 * bonusToApp in bonusList: bonusList.remove(-1 * bonusToApp)
+                        else: bonusList.append(bonusToApp) ; threading.Thread(target=self.bonusTimer, args=[bonusToApp], daemon=True).start()
+                        self.gameInfos["bonus"], alreadyTaken, self.curBonus[0] = sum(bonusList), True, [-10, -10]
 
     def bonusTimer(self, bonusType):
+        global bonusList
         sleep(5)
-        self.gameInfos["players"][0]["bonus"] += bonusType * -2 + 1
+        if bonusType in bonusList: bonusList.remove(bonusType)
+        self.gameInfos["bonus"] = sum(bonusList)
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
