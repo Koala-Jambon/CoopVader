@@ -2,6 +2,7 @@ import pyxel
 import os
 import socket
 from time import sleep, time
+from random import randint
 import threading
 
 class App:
@@ -33,7 +34,8 @@ class App:
         
         #inGame:
         self.gameInfos, self.lastShot = {"rockets" : []}, 0
-        threading.Thread(target=self.higherRockets, daemon=True).start()
+        self.curBonus = [[-10, -10], 0]
+
         #Pyxel:
         pyxel.init(228, 128, title="Stars Invader")
         pyxel.load('./ressources/ressources.pyxres')
@@ -139,7 +141,9 @@ class App:
                     return 0
                 elif srvMsg[1] == "playing":
                     self.currentState = "inGame"
-                    threading.Thread(target=self.getSrvMsgCOOP).start()
+                    threading.Thread(target=self.getSrvMsgCOOP, daemon=True).start()
+                    threading.Thread(target=self.higherRockets, daemon=True).start()
+                    threading.Thread(target=self.bonusSystem, daemon=True).start()
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -226,7 +230,9 @@ class App:
             if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
             elif srvMsg[0] == "inGame":
                 self.currentState = "inGame"
-                threading.Thread(target=self.getSrvMsgCOOP).start() 
+                threading.Thread(target=self.getSrvMsgCOOP, daemon=True).start() 
+                threading.Thread(target=self.higherRockets, daemon=True).start()
+                threading.Thread(target=self.bonusSystem, daemon=True).start()
                 self.gameNumber = int(srvMsg[1])
             sleep(1)
 
@@ -246,10 +252,11 @@ class App:
     
     def update_inGame(self):
         action = "None"
-        if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -2
-        if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += 2
-        if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -2
-        if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += 2
+        MOV_CONST = 1 if self.gameInfos["players"][0]["bonus"] < 0 else 2
+        if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1 * MOV_CONST
+        if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += MOV_CONST
+        if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1 * MOV_CONST
+        if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += MOV_CONST
         if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(self.gameInfos['players'][0]['coords'])
 
         if self.gameMode == "VS": pass
@@ -257,7 +264,7 @@ class App:
             if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
             elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
             if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
-            elif self.gameInfos["players"][0]["coords"][1] > 118: self.gameInfos["players"][0]["coords"][1] = 118
+            elif self.gameInfos["players"][0]["coords"][1] > 112: self.gameInfos["players"][0]["coords"][1] = 112
         
         self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{action}%".encode("utf-8"))
         
@@ -267,14 +274,18 @@ class App:
         pyxel.stop(0)
         pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
         pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-        pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 0, 0, 16, 16)
-        pyxel.blt(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 0, 16, 0, 16, 16)
+        pyxel.text(0, 20, f"urBonus:{self.gameInfos["players"][0]["bonus"]}", 7)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
         ###Vraiment inutile, n'hesite pas à delete les 4 lignes suivantes :
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 10, 10, 8)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 10, 10, 9)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
         ###FIN DES LIGNES INUTILES
+
+        pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
+
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
 
@@ -287,12 +298,12 @@ class App:
                 continue
             else: srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
             for msg in srvMsg:
-                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], "" ; break
+                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], "" ; exit(0)
                 if len(msg) != 6 or msg[0] != "infos": return 1
                 ennToRem = eval(msg[3])
                 for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
                 rocToApp = eval(msg[4])
-                for rocket in rocToApp: self.gameInfos["rockets"].append(rocket) ; print(rocket)
+                for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
             srvMsg = srvMsg[0]
 
             self.gameInfos["lives"] = int(srvMsg[1])
@@ -301,13 +312,34 @@ class App:
 
     def higherRockets(self):
         rocketDelay = 0        
-        while True: 
+        while self.currentState == "inGame": 
             curTime = time()
             rocketDiff = round((curTime-rocketDelay) * 100)
             if rocketDiff == 0: continue
             rocketDelay = curTime
             try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
+        
+    def bonusSystem(self):
+        while self.currentState == "inGame":
+            self.curBonus = [[randint(5, 220), randint(5, 120)], randint(0,1)]
+            lastBonus = time()
+            while time()-lastBonus <= 5:
+                tempInfos = self.gameInfos["players"][0]["coords"]
+                tempInfos = [(x, y) for x in range(tempInfos[0], tempInfos[0] + 15) for y in range(tempInfos[1], tempInfos[1] + 16)]
+                if  (
+                    ((self.curBonus[0][0],self.curBonus[0][1]) in tempInfos)
+                    or ((self.curBonus[0][0],self.curBonus[0][1]+8) in tempInfos)
+                    or ((self.curBonus[0][0]+8,self.curBonus[0][1]+8) in tempInfos)
+                    or ((self.curBonus[0][0]+8,self.curBonus[0][1]) in tempInfos)
+                    ): 
+                        self.gameInfos["players"][0]["bonus"] += self.curBonus[1] * 2 - 1
+                        threading.Thread(target=self.bonusTimer, args=[self.curBonus[1]], daemon=True).start()
+                        break
+
+    def bonusTimer(self, bonusType):
+        sleep(5)
+        self.gameInfos["players"][0]["bonus"] += bonusType * -2 + 1
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
