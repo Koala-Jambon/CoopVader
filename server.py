@@ -177,12 +177,11 @@ class ClientClass:
             if len(userMsg) != 4 or userMsg[0] != "infos": self.quit()
             gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
             tempInfos = gameInfos['COOP'][self.gameNumber]
-            if userMsg[3] == "Shot":
-                gameInfos["COOP"][self.gameNumber]["players"][0]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-                gameInfos["COOP"][self.gameNumber]["players"][1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-            self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempInfos["players"][self.playerNumber]["ennemiesRem"]}|{tempInfos["players"][self.playerNumber]["newRockets"]}|{tempInfos['players'][self.playerNumber]["bonus"]}|{tempInfos['players'][self.playerNumber-1]["coords"]}|{tempInfos['players'][self.playerNumber-1]["bonus"]}%".encode("utf-8"))
-            gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"] = gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"] = []
-
+            tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
+            tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
+            if userMsg[3] == "Shot": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
+            for newRock in tempRock: gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
 def executeAdmin():
     global exitProgramm
     instruction = {"ban"     : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
