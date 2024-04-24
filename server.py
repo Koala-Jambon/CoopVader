@@ -111,7 +111,7 @@ class ClientClass:
                         partyLists[self.gameMode][int(userMsg[1])]["state"] = "FULL"
                         self.currentState = "inGame"
                         self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
-                        self.clientValue.send(f'continue|playing'.encode("utf-8"))
+                        self.clientValue.send(f'continue|playing{self.playerNumber}'.encode("utf-8"))
                     else: 
                         partyLists[self.gameMode][int(userMsg[1])]["state"] = self.clientName
                         self.gameNumber = int(userMsg[1])
@@ -129,8 +129,8 @@ class ClientClass:
                 break
             self.gameMode = userMsg[1]
             partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-            if self.gameMode == "VS": pass
-            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [[1, 20, 10], [2, 40, 10], [3, 60, 10], [4, 80, 10], [0, 100, 10]], "rockets" : [],"players" : [{"coords": [10, 218], "newRockets" : [], "ennemiesRem" : [], "bonus": 0}, {"coords": [30, 218], "newRockets" : [], "ennemiesRem" : [], "bonus": 0}]})
+            if self.gameMode == "VS": gameInfos["COOP"].append({"ended" : "None", "ennemies" : [], "rockets" : [], "players" : [{"coords": [10, 218], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}, {"coords": [30, 218], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}]})
+            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [10, 218], "newRockets" : [], "ennemiesRem" : []}, {"coords": [30, 218], "newRockets" : [], "ennemiesRem" : []}]})
             self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
             self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
             self.currentState = "waitGame"
@@ -151,7 +151,7 @@ class ClientClass:
             if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2:
                 self.currentState = "inGame"
                 self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
-                self.clientValue.send(f'inGame|{self.gameNumber}'.encode("utf-8"))
+                self.clientValue.send(f'inGame|{self.playerNumber}'.encode("utf-8"))
             else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
             
     def inGame_VS(self):
@@ -179,9 +179,11 @@ class ClientClass:
             tempInfos = gameInfos['COOP'][self.gameNumber]
             tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
             tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
-            if userMsg[3] == "Shot": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            if userMsg[3][:4] == "Shot": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            if userMsg[3][4:] == "+": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]+10, tempInfos['players'][self.playerNumber]["coords"][1]]) ; gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-10, tempInfos['players'][self.playerNumber]["coords"][1]])
             self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
             for newRock in tempRock: gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
+
 def executeAdmin():
     global exitProgramm
     instruction = {"ban"     : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
