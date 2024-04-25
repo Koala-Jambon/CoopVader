@@ -129,8 +129,8 @@ class ClientClass:
                 break
             self.gameMode = userMsg[1]
             partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-            if self.gameMode == "VS": gameInfos["COOP"].append({"ended" : "None", "ennemies" : [], "rockets" : [], "players" : [{"coords": [10, 218], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}, {"coords": [30, 218], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}]})
-            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [10, 218], "newRockets" : [], "ennemiesRem" : []}, {"coords": [30, 218], "newRockets" : [], "ennemiesRem" : []}]})
+            if self.gameMode == "VS": gameInfos["VS"].append({"ended" : "None", "ennemies" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}, {"coords": [194, 104], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}]})
+            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [34, 104], "newRockets" : [], "ennemiesRem" : []}, {"coords": [194, 104], "newRockets" : [], "ennemiesRem" : []}]})
             self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
             self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
             self.currentState = "waitGame"
