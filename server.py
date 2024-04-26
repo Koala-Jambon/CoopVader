@@ -296,8 +296,13 @@ if __name__ == "__main__":
     threading.Thread(target=updatePartyList, daemon=True).start()
     threading.Thread(target=higherRockets, daemon=True).start()
     
-    while not exitProgramm: pass
-    
+    try:
+        while not exitProgramm: pass
+    except KeyboardInterrupt:
+        write(Fore.RED, "Server stopped")
+        print(Fore.RESET)
+        exit(0)
+        
     write(Fore.RED, "Server stopped")
     print(Fore.RESET)
     exit(0)
