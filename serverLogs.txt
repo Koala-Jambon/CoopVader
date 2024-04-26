@@ -1,0 +1,23 @@
+04/26/2024 11:13:12 - Server Started
+04/26/2024 11:13:14 - New connection : ('127.0.0.1', 53108)
+04/26/2024 11:13:24 - ('127.0.0.1', 53108) -> THISISGREAT
+04/26/2024 11:13:40 - ('127.0.0.1', 53108) was kicked
+04/26/2024 11:13:56 - Server stopped
+04/26/2024 11:14:00 - Server Started
+04/26/2024 11:14:25 - Just flexing the logs file feature!
+04/26/2024 11:14:34 - Here is the list of available commands :
+                          -ban
+                          -banlist
+                          -clear
+                          -cls
+                          -echo
+                          -execas
+                          -gamels
+                          -kick
+                          -list
+                          -man
+                          -pardon
+                          -partyls
+                          -stop
+04/26/2024 11:14:42 - MAN STOP - Stops the server...
+04/26/2024 11:14:49 - Server stopped
