@@ -49,19 +49,15 @@ class ClientClass:
     def handleUser(self):
         try:
             if self.currentState == "getNickname": self.getNickname()
-            while True:
-                if self.currentState == "mainLobby": self.mainLobby()
-                if self.currentState == "joinLobby": self.joinLobby()
-                if self.currentState == "createLobby": self.createLobby()
-                if self.currentState == "waitGame": self.waitGame()
-                if self.currentState == "inGame": self.inGame() 
-        except ConnectionAbortedError:
-            write(Fore.RED, f'{self.clientAdress} was kicked')
+            while True: getattr(self, self.currentState)()
+        except (ConnectionAbortedError, ConnectionResetError) as Error:
+            if type(Error) == ConnectionAbortedError: write(Fore.RED, f'{self.clientAdress} was kicked')
+            else: self.quit()
             self.clientValue.close()
             del connectionDict[f"{self.clientAdress[0]}:{self.clientAdress[1]}"]
             if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
             if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
-            
+    
     def getNickname(self):
         while self.currentState == "getNickname":
             try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
@@ -174,7 +170,7 @@ class ClientClass:
             else: userMsg = userMsg.split('%',1)[0].split('|', 3 + GAMEMODE_CONST)
             if len(userMsg) != 4 + GAMEMODE_CONST or userMsg[0] != "infos": self.quit()
             gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
-            if self.gameMode == "VS": gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"], gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"] = int(userMsg[3]), int(userMsg[4])
+            if self.gameMode == "VS": gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"], gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["score"] = int(userMsg[3]), int(userMsg[4])
             tempInfos = gameInfos[self.gameMode][self.gameNumber]
             tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
             tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
@@ -298,11 +294,8 @@ if __name__ == "__main__":
     
     try:
         while not exitProgramm: pass
-    except KeyboardInterrupt:
-        write(Fore.RED, "Server stopped")
-        print(Fore.RESET)
-        exit(0)
-        
+    except KeyboardInterrupt: pass
+
     write(Fore.RED, "Server stopped")
     print(Fore.RESET)
     exit(0)
