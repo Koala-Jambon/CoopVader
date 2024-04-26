@@ -4,6 +4,7 @@ import threading
 import os
 from colorama import Fore
 from time import sleep, time
+from datetime import datetime
 
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
@@ -33,12 +34,12 @@ class ClientClass:
         self.playerNumber = 0
         self.currentState = "getNickname"
 
-        print(Fore.BLUE, f'New connection : {self.clientAdress}')
+        write(Fore.BLUE, f'New connection : {self.clientAdress}')
 
         self.handleUser()
 
     def quit(self):
-        print(Fore.RED, f'Someone quit : {self.clientAdress} - {self.currentState}')
+        write(Fore.RED, f'Someone quit : {self.clientAdress} - {self.currentState}')
         self.clientValue.close()
         del connectionDict[f"{self.clientAdress[0]}:{self.clientAdress[1]}"]
         if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
@@ -53,9 +54,9 @@ class ClientClass:
                 if self.currentState == "joinLobby": self.joinLobby()
                 if self.currentState == "createLobby": self.createLobby()
                 if self.currentState == "waitGame": self.waitGame()
-                if self.currentState == "inGame": getattr(self, f'inGame_{self.gameMode}')() 
+                if self.currentState == "inGame": self.inGame() 
         except ConnectionAbortedError:
-            print(Fore.RED, f'{self.clientAdress} was kicked')
+            write(Fore.RED, f'{self.clientAdress} was kicked')
             self.clientValue.close()
             del connectionDict[f"{self.clientAdress[0]}:{self.clientAdress[1]}"]
             if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
@@ -67,7 +68,7 @@ class ClientClass:
             except ConnectionResetError: self.quit()
             if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
                 self.clientName = userMsg[1]
-                print(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}')
+                write(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}')
                 self.clientValue.send('continue|skip'.encode("utf-8"))
                 self.currentState = "mainLobby"
                 break
@@ -154,51 +155,50 @@ class ClientClass:
                 self.clientValue.send(f'inGame|{self.playerNumber}'.encode("utf-8"))
             else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
             
-    def inGame_VS(self):
-        pass
-    
-    def inGame_COOP(self):
+    def inGame(self):
+        GAMEMODE_CONST = 2 if self.gameMode == "VS" else 0
         while self.currentState == "inGame":
-            if gameInfos['COOP'][self.gameNumber]["ended"] == "quit":
+            if gameInfos[self.gameMode][self.gameNumber]["ended"] == "quit":
                 self.clientValue.send('main|quit%'.encode("utf-8"))
                 partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
-                gameInfos['COOP'][self.gameNumber]["ended"] = "None"
+                gameInfos[self.gameMode][self.gameNumber]["ended"] = "None"
                 self.currentState, self.gameMode, self.gameNumber, self.playerNumber = "mainLobby", "", 0, 0
                 break
             # Maybe handle loose / win? Ended should be L or W instead of quit
-
             try: userMsg = self.clientValue.recv(1024).decode("utf-8")
             except ConnectionResetError: self.quit()
             if "Shot" in userMsg:
                 userMsg = userMsg.split("%")
                 for msg in userMsg: 
-                    if "Shot" in msg: userMsg = msg.split('|', 3) ; break
-            else: userMsg = userMsg.split('%',1)[0].split('|', 3)
-            if len(userMsg) != 4 or userMsg[0] != "infos": self.quit()
-            gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
-            tempInfos = gameInfos['COOP'][self.gameNumber]
+                    if "Shot" in msg: userMsg = msg.split('|', 3 + GAMEMODE_CONST) ; break
+            else: userMsg = userMsg.split('%',1)[0].split('|', 3 + GAMEMODE_CONST)
+            if len(userMsg) != 4 + GAMEMODE_CONST or userMsg[0] != "infos": self.quit()
+            gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
+            if self.gameMode == "VS": gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"], gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"] = int(userMsg[3]), int(userMsg[4])
+            tempInfos = gameInfos[self.gameMode][self.gameNumber]
             tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
             tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
-            if userMsg[3][:4] == "Shot": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-            if userMsg[3][4:] == "+": gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]+10, tempInfos['players'][self.playerNumber]["coords"][1]]) ; gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-10, tempInfos['players'][self.playerNumber]["coords"][1]])
-            self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
-            for newRock in tempRock: gameInfos["COOP"][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
+            if userMsg[3 + GAMEMODE_CONST][:4] == "Shot": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
+            if userMsg[3 + GAMEMODE_CONST][4:] == "+": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]+10, tempInfos['players'][self.playerNumber]["coords"][1]]) ; gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-10, tempInfos['players'][self.playerNumber]["coords"][1]])
+            if self.gameMode == "VS": self.clientValue.send(f"infos|{tempInfos['players'][self.playerNumber-1]['lives']}|{tempInfos['players'][self.playerNumber-1]['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
+            else: self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
+            for newRock in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
 
 def executeAdmin():
     global exitProgramm
-    instruction = {"ban"     : f"{Fore.WHITE} MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
-                   "banlist" : f"{Fore.WHITE} MAN BANLIST - Returns the list of banned IPs",
-                   "clear"   : f"{Fore.WHITE} MAN CLEAR - Clears the server log shell",
-                   "cls"     : f"{Fore.WHITE} MAN CLS - Clears the server command shell",
-                   "echo"    : f"{Fore.WHITE} MAN ECHO - Writes anything to the server log shell",
-                   "execas"  : f"{Fore.WHITE} MAN EXECAS - Executes the command as IP; example : $>execas 127.0.0.1 start https://google.com",
-                   "gamels"  : f"{Fore.WHITE} MAN PARTYLS - Returns the value of the variable : gameInfos",
-                   "kick"    : f"{Fore.WHITE} MAN KICK - Kicks an IP:PORT; example : '$>kick 127.0.0.1:20201'",
-                   "list"    : f"{Fore.WHITE} MAN LIST - Returns the list of connected IPs",
-                   "man"     : f"{Fore.WHITE} MAN MAN - RTFM",
-                   "pardon"  : f"{Fore.WHITE} MAN PARDON - Pardons an IP; example : '$>pardon 127.0.0.1'",
-                   "partyls" : f"{Fore.WHITE} MAN PARTYLS - Returns the value of the variable : partylists",
-                   "stop"    : f"{Fore.WHITE} MAN STOP - Stops the server..."}
+    instruction = {"ban"     : "MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
+                   "banlist" : "MAN BANLIST - Returns the list of banned IPs",
+                   "clear"   : "MAN CLEAR - Clears the server log shell",
+                   "cls"     : "MAN CLS - Clears the server command shell",
+                   "echo"    : "MAN ECHO - Writes anything to the server log shell",
+                   "execas"  : "MAN EXECAS - Executes the command as IP; example : $>execas 127.0.0.1 start https://google.com",
+                   "gamels"  : "MAN PARTYLS - Returns the value of the variable : gameInfos",
+                   "kick"    : "MAN KICK - Kicks an IP:PORT; example : '$>kick 127.0.0.1:20201'",
+                   "list"    : "MAN LIST - Returns the list of connected IPs",
+                   "man"     : "MAN MAN - RTFM",
+                   "pardon"  : "MAN PARDON - Pardons an IP; example : '$>pardon 127.0.0.1'",
+                   "partyls" : "MAN PARTYLS - Returns the value of the variable : partylists",
+                   "stop"    : "MAN STOP - Stops the server..."}
     commandList = list(instruction.keys())
     while True:
         with open('adminCommand.txt', 'r') as cmdFile: command = cmdFile.readline()
@@ -211,40 +211,42 @@ def executeAdmin():
                 for key in list(connectionDict.keys()):
                     if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[f'{key}'].close()
                 bannedIPs.append(splitedCommand[1])
-                print(Fore.BLUE, f'{splitedCommand[1]} was banned')
-            case "banlist": print(Fore.CYAN, "Here is a list of banned IPs :", bannedIPs)
+                write(Fore.BLUE, f'{splitedCommand[1]} was banned')
+            case "banlist": write(Fore.CYAN, f"Here is a list of banned IPs : {bannedIPs}")
             case "clear":
+                write(Fore.RESET, "Server shell cleared")
                 if os.name == "posix": os.system("clear")
                 else: os.system("cls")
                 print(Fore.RED, "Server Started")
-            case "echo": print(Fore.WHITE, splitedCommand[1])
+            case "echo": write(Fore.WHITE, splitedCommand[1])
             case "execas":
                 splitedCommand = splitedCommand[1].split(" ", 1)
                 for key in list(connectionDict.keys()):
                     if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[splitedCommand[0]].send(f'execas|{splitedCommand[1]}%'.encode("utf-8"))
-            case "gamels": print(Fore.CYAN, "Here is the gameInfos :", gameInfos)
+            case "gamels": write(Fore.CYAN, f"Here is the gameInfos : {gameInfos}")
             case "kick": 
                 if splitedCommand[1] not in list(connectionDict.keys()): 
-                    print(Fore.CYAN, f"'{splitedCommand[1]}' cannot be kicked")
+                    write(Fore.CYAN, f"'{splitedCommand[1]}' cannot be kicked")
                     continue
                 connectionDict[f'{splitedCommand[1]}'].close()
-            case "list": print(Fore.CYAN, "Here is a list of connected IPs :", list(connectionDict.keys()))
+            case "list": write(Fore.CYAN, f"Here is a list of connected IPs : {list(connectionDict.keys())}")
             case "man":
                 if len(splitedCommand) == 1:
-                    print(Fore.CYAN, "Here is the list of available commands :")
-                    for command in commandList: print(f"    -{command}")
-                elif splitedCommand[1] in commandList: print(Fore.CYAN, instruction[splitedCommand[1]])
-                else: print(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
+                    manMsg = "Here is the list of available commands :"
+                    for command in commandList: manMsg += (f"\n    -{command}")
+                    write(Fore.CYAN, manMsg)
+                elif splitedCommand[1] in commandList: write(Fore.WHITE, instruction[splitedCommand[1]])
+                else: write(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
             case "pardon":
                 if splitedCommand[1] in bannedIPs: 
                     bannedIPs.remove(splitedCommand[1])
-                    print(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
-                else: print(Fore.BLUE, f'{splitedCommand[1]} is not banned')
-            case "partyls": print(Fore.CYAN, "Here is the partylist :", partyLists)
+                    write(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
+                else: write(Fore.BLUE, f'{splitedCommand[1]} is not banned')
+            case "partyls": write(Fore.CYAN, f"Here is the partylist : {partyLists}")
             case "stop": 
                 exitProgramm = True
                 exit(0)
-            case _: print(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
+            case _: write(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
 
 def updatePartyList():
     while True:
@@ -267,12 +269,17 @@ def higherRockets():
             for game in range(1, len(gameInfos[gameMode])):
                 gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - rocketDiff] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - rocketDiff >= 0]
 
+def write(Color, Message): 
+    print(Color, Message)
+    if "\n" in Message: Message = Message.split("\n") ; Message = "\n".join([Message[0]] +[" "*22+msg for msg in Message[1:]])
+    with open("serverLogs.txt", "a") as logsFile: logsFile.write(f"{datetime.now().strftime("%m/%d/%Y %H:%M:%S")} - {Message}\n")
+
 def main():
     while True:
         newClient, newClientAdress = sock.accept()    
         try:
             if newClientAdress[0] in bannedIPs: 
-                print(Fore.BLUE, f'{newClientAdress}(banned) tried to reconnect')
+                write(Fore.BLUE, f'{newClientAdress}(banned) tried to reconnect')
                 exit(0)
             connectionDict[f"{newClientAdress[0]}:{newClientAdress[1]}"] = newClient
             threading.Thread(target=ClientClass, args=(newClient, newClientAdress), daemon=True).start()
@@ -282,7 +289,7 @@ if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
     else: os.system("cls")
     
-    print(Fore.RED, "Server Started")
+    write(Fore.RED, "Server Started")
     
     threading.Thread(target=main, daemon=True).start()
     threading.Thread(target=executeAdmin, daemon=True).start()
@@ -291,5 +298,6 @@ if __name__ == "__main__":
     
     while not exitProgramm: pass
     
-    print(Fore.RED, "Server stopped", Fore.RESET)
+    write(Fore.RED, "Server stopped")
+    print(Fore.RESET)
     exit(0)
