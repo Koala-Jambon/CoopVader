@@ -43,32 +43,43 @@ class App:
 
 
     def update(self):
+        #Calling the update function corresponding to our current game state
         status = getattr(self, f'update_{self.currentState}')()
+        
+        #Verifying if an error of any kind occured, in case it did : send an error message
         if status != 0:
             print("An error occured", self.currentState)
             exit(status)
 
     def draw(self):
-        pyxel.cls(0)
+        pyxel.cls(0) #Clear screen
+        
+        #Calling the draw function corresponding to our current game state
         status = getattr(self, f'draw_{self.currentState}')()
+        
+        #Verifying if an error of any kind occured, in case it did: send an error message
         if status != 0:
             print("An error occured")
             exit(status)
 
     def update_getNickname(self):
+        #Check if user wants to remove the last letter of their username
         if pyxel.btnp(pyxel.KEY_BACKSPACE):
             self.userNickname = self.userNickname[:-1]
             return 0
-        
-        if len(self.userNickname) >= 12: return 0
-
+            
+		#Check if user wants to send their name to the user
         if pyxel.btnp(pyxel.KEY_RETURN):
-            self.client.send(f'sendName|{self.userNickname}'.encode("utf-8"))
-            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-            if len(srvMsg) != 2 or srvMsg[0] != "continue" or srvMsg[0] == "exit": return 1
-            self.currentState = "mainLobby"
+            self.client.send(f'sendName|{self.userNickname}'.encode("utf-8")) #Sends to the server the username
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+            if len(srvMsg) != 2 or srvMsg[0] != "continue" or srvMsg[0] == "exit": return 1 #Verify the answer format
+            self.currentState = "mainLobby" #Change game state if no error occured
             return 0
         
+        #If the name is too long, the user cannot append any more char so we quit the function
+        if len(self.userNickname) >= 12: return 0
+        
+        #Check if the user wants to append a char at the end of their username
         for i in range(36):
             if pyxel.btnp(self.PYXEL_KEY_LETTERS[i]):
                 self.userNickname += self.ALPHABET[i]
@@ -83,24 +94,28 @@ class App:
         return 0
 
     def update_mainLobby(self):
+        #Check if user choses a button
         if pyxel.btnp(pyxel.KEY_RETURN):
             if self.mainLobbyButton == 0: 
-                self.client.send(f'button|quit'.encode("utf-8"))
-                pyxel.quit()
+                self.client.send(f'button|quit'.encode("utf-8")) #Tell server to close the thread
+                pyxel.quit() #Close program
+                
+            #Updates variables in function of the button the user pressed
             elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
-            self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8"))
-            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-            if self.currentState == "createLobby" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1
-            if self.currentState == "joinLobby": 
-                if len(srvMsg) != 2 or srvMsg[0] != "continue": return 1
-                self.numberOfParties = int(srvMsg[1])
-                self.latestJoinButton = -1
+            self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
+            if self.currentState == "createLobby" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1 #Verify the format of the answer
+            if self.currentState == "joinLobby":  
+                if len(srvMsg) != 2 or srvMsg[0] != "continue": return 1 #Also verifies the format of the server
+                self.numberOfParties = int(srvMsg[1]) #Gets the number of parties currently existing on the server
+                self.latestJoinButton = -1 #Sets up the variables for later use
 
-            self.mainLobbyButton = 0
+            self.mainLobbyButton = 0 #Resets the variable
             return 0
 
+		#Modifies the button in function of where the user is and which key he presses
         if self.mainLobbyButton in [1, 2]:
             if pyxel.btnp(pyxel.KEY_LEFT): self.mainLobbyButton += 1
             elif pyxel.btnp(pyxel.KEY_RIGHT): self.mainLobbyButton += -1
@@ -110,6 +125,7 @@ class App:
         if pyxel.btnp(pyxel.KEY_UP): self.mainLobbyButton += [-1, -1, -2, -2][self.mainLobbyButton]
         elif pyxel.btnp(pyxel.KEY_DOWN): self.mainLobbyButton += [1, 2, 1, 1][self.mainLobbyButton]
         
+        #Make sure the button does not go OOB
         if self.mainLobbyButton >= 4: self.mainLobbyButton = 0
         if self.mainLobbyButton == -1: self.mainLobbyButton = 3
         return 0
