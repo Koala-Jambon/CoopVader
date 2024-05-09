@@ -191,21 +191,24 @@ class App:
         return 0
 
     def update_createLobby(self):
+        #Check if the user chose a button
         if pyxel.btnp(pyxel.KEY_RETURN):
             if self.createLobbyButton == 0: 
-                self.client.send(f'button|quit'.encode("utf-8"))
-                self.currentState = "mainLobby"
+                self.client.send(f'button|quit'.encode("utf-8")) #Tells the server to go back to main menu
+                self.currentState = "mainLobby" #Go back to main menu
             elif self.createLobbyButton == 2:
+                #Sets up the variables for later use
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
                 if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
                 elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
-                self.client.send(f'create|{self.gameMode}'.encode("utf-8"))
-                srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-                if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1
+                self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
+                srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
+                if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1 #Verify the answer format
                 self.gameNumber = int(srvMsg[1])
                 self.createLobbyButton = 0
             return 0
 
+        #Updates the button in fuction of where the user is and which key he presses
         if self.createLobbyButton == 1:
             for NAVIGATION_KEY in [pyxel.KEY_RIGHT, pyxel.KEY_LEFT]:
                 if pyxel.btnp(NAVIGATION_KEY):
@@ -217,6 +220,7 @@ class App:
                 self.createLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
                 break
         
+        #Make sure no button goes OoB
         if self.createLobbyButton >= 3: self.createLobbyButton = 0
         if self.createLobbyButton == -1: self.createLobbyButton = 2
         if self.createLobbyButton2 >= 2: self.createLobbyButton2 = 0
@@ -234,26 +238,27 @@ class App:
         return 0
     
     def update_waitGame(self):
+        #Check if user wants to quit waiting
         if pyxel.btnp(pyxel.KEY_SPACE): 
-            self.client.send(f"quit|None".encode("utf-8"))
-            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-            if srvMsg[0] != "mainLobby": self.quit()
+            self.client.send(f"quit|None".encode("utf-8")) #Tells the server to go back to the main menu
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+            if srvMsg[0] != "mainLobby": self.quit() #Verify answer format
             self.currentState = "mainLobby"
             self.gameMode = ""
             return 0
-        else: 
-            self.client.send(f"waiting|{self.gameNumber}".encode("utf-8"))
-            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
-            if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1
-            if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1])
-            elif srvMsg[0] == "inGame":
-                self.currentState, self.playerNumber = "inGame", int(srvMsg[1])
-                threading.Thread(target=self.getServerMessageInGame, daemon=True).start() 
-                threading.Thread(target=self.higherRockets, daemon=True).start()
-                threading.Thread(target=self.bonusThread, daemon=True).start()
-                self.gameNumber = int(srvMsg[1])
-            sleep(1)
-
+            
+        self.client.send(f"waiting|{self.gameNumber}".encode("utf-8")) #Tells the server you're still waiting
+        srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+        if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1 #Verify the format of the server answer
+        if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1]) #Make sure no error occures later on
+        elif srvMsg[0] == "inGame": #If the server says the game started
+            #Starts everything to run the game
+            self.currentState, self.playerNumber = "inGame", int(srvMsg[1])
+            threading.Thread(target=self.getServerMessageInGame, daemon=True).start() 
+            threading.Thread(target=self.higherRockets, daemon=True).start()
+            threading.Thread(target=self.bonusThread, daemon=True).start()
+            self.gameNumber = int(srvMsg[1])
+        sleep(1)
         return 0
 
     def draw_waitGame(self):
@@ -269,33 +274,40 @@ class App:
         return 0
     
     def update_inGame(self):
-        action = "None"
-        MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2
+        action = "None" # Resets the shot
+        MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2 #Modifies the speed in function of the bonus
 
         #Movement
         if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += MOV_CONST
         if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1 * MOV_CONST
         if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += MOV_CONST
+            
+        #Make sure the user does not go OoB(Y)
         if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
         elif self.gameInfos["players"][0]["coords"][1] > 112: self.gameInfos["players"][0]["coords"][1] = 112
 
         #Rockets
         if pyxel.btn(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: 
-            tempCoords = self.gameInfos['players'][0]['coords']
-            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(tempCoords)
+            tempCoords = self.gameInfos['players'][0]['coords'] #Save coords the moment you shot to create no difference between what the server sees and what you see
+            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(tempCoords) #Says you shot and reset the shot delay ; Creates the rocket
+            #Creates more rockets if you have a bonus
             if self.gameInfos["bonus"] > 0: action += "+" ; self.gameInfos['rockets'].append([tempCoords[0]+10, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-10, tempCoords[1]])
 
         #Gamemode specifications
         if self.gameMode == "VS":
+            #Make sure the user does not go OoB (X)
             if self.gameInfos["players"][0]["coords"][0] < [0, 121][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] += 106
             elif self.gameInfos["players"][0]["coords"][0] > [105, 227][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] -= 106
 
+            #Sends the server all informations required
             self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{self.gameInfos['players'][0]['lives']}|{self.gameInfos['players'][0]['score']}|{action}%".encode("utf-8"))
         elif self.gameMode == "COOP": 
+            #Make sure the user does not go OoB (X)
             if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 227
             elif self.gameInfos["players"][0]["coords"][0] > 227: self.gameInfos["players"][0]["coords"][0] -= 227
         
+            #Sends the server all informations required
             self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{action}%".encode("utf-8"))
         return 0
 
@@ -331,6 +343,7 @@ class App:
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
 
+    #Get the server message during a game to update the informations
     def getServerMessageInGame(self):
         while self.currentState == "inGame":
             srvMsg = self.client.recv(1024).decode("utf-8")
@@ -358,6 +371,7 @@ class App:
 
             self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
 
+    #Makes the rockets move upwards in functin of when theybmoved last (so lag does not make them move slower)
     def higherRockets(self):
         rocketDelay = 0        
         while self.currentState == "inGame": 
@@ -368,6 +382,7 @@ class App:
             try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
         
+    #Creates and handles the bonus
     def bonusThread(self):
         global bonusList
         bonusList, alreadyTaken = [], False
@@ -391,6 +406,7 @@ class App:
                         else: bonusList.append(bonusToApp) ; threading.Thread(target=self.bonusTimer, args=[bonusToApp], daemon=True).start()
                         self.gameInfos["bonus"], alreadyTaken, self.curBonus[0] = sum(bonusList), True, [-10, -10]
 
+    #Timer to remove the bonus after 5s
     def bonusTimer(self, bonusType):
         global bonusList
         sleep(5)
@@ -401,10 +417,12 @@ if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
     else: os.system("cls")
 
+    #Connect to server
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try: client.connect(("localhost", 20101))
     except OSError:
         print("Could not connect to the server: try updating; try later")
         exit()
 
+    #Start application
     App(client)
