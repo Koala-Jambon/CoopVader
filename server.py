@@ -174,10 +174,10 @@ class ClientClass:
             tempInfos = gameInfos[self.gameMode][self.gameNumber]
             tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
             tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
-            if userMsg[3 + GAMEMODE_CONST][:4] == "Shot": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]["coords"])
-            if userMsg[3 + GAMEMODE_CONST][4:] == "+": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]+10, tempInfos['players'][self.playerNumber]["coords"][1]]) ; gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-10, tempInfos['players'][self.playerNumber]["coords"][1]])
-            if self.gameMode == "VS": self.clientValue.send(f"infos|{tempInfos['players'][self.playerNumber-1]['lives']}|{tempInfos['players'][self.playerNumber-1]['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
-            else: self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]["coords"]}%".encode("utf-8"))
+            if userMsg[3 + GAMEMODE_CONST][:4] == "Shot": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append(tempInfos['players'][self.playerNumber]['coords'])
+            if userMsg[3 + GAMEMODE_CONST][4:] == "+": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]['coords'][0]+10, tempInfos['players'][self.playerNumber]['coords'][1]]) ; gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-10, tempInfos['players'][self.playerNumber]["coords"][1]])
+            if self.gameMode == "VS": self.clientValue.send(f"infos|{tempInfos['players'][self.playerNumber-1]['lives']}|{tempInfos['players'][self.playerNumber-1]['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
+            else: self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
             for newRock in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
 
 def executeAdmin():
@@ -268,7 +268,7 @@ def higherRockets():
 def write(Color, Message): 
     print(Color, Message)
     if "\n" in Message: Message = Message.split("\n") ; Message = "\n".join([Message[0]] +[" "*22+msg for msg in Message[1:]])
-    with open("serverLogs.txt", "a") as logsFile: logsFile.write(f"{datetime.now().strftime("%m/%d/%Y %H:%M:%S")} - {Message}\n")
+    with open("serverLogs.txt", "a") as logsFile: logsFile.write(f"{datetime.now().strftime('%m/%d/%Y %H:%M:%S')} - {Message}\n")
 
 def main():
     while True:

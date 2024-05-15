@@ -327,16 +327,16 @@ class App:
         pyxel.rect(self.gameInfos["players"][0]["coords"][0]-GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
         pyxel.rect(self.gameInfos["players"][1]["coords"][0]-GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
 
-        pyxel.text(0, 20, f"urBonus:{self.gameInfos["bonus"]}", 7)
+        pyxel.text(0, 20, f"urBonus:{self.gameInfos['bonus']}", 7)
         if self.gameMode == "COOP":
             pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
             pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
         else:
             pyxel.rect(106, 0, 16, 128, 7)
-            pyxel.text(0, 0, f"lives:{self.gameInfos["players"][0]['lives']}", 7)
-            pyxel.text(0, 10, f"score:{self.gameInfos["players"][0]['score']}", 7)
-            pyxel.text(200, 0, f"lives:{self.gameInfos["players"][1]['lives']}", 7)
-            pyxel.text(200, 10, f"score:{self.gameInfos["players"][1]['score']}", 7)
+            pyxel.text(0, 0, f"lives:{self.gameInfos['players'][0]['lives']}", 7)
+            pyxel.text(0, 10, f"score:{self.gameInfos['players'][0]['score']}", 7)
+            pyxel.text(200, 0, f"lives:{self.gameInfos['players'][1]['lives']}", 7)
+            pyxel.text(200, 10, f"score:{self.gameInfos['players'][1]['score']}", 7)
 
         pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
 
