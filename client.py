@@ -8,7 +8,11 @@ import threading
 class App:
 
     def __init__(self, client) -> None:
-        
+        #END SCREENS
+        self.endScreenTimer = 0
+        self.hasEnded = False
+        self.endMessage = ""
+
         #Useful: 
         self.client = client
         self.currentState = "getNickname"
@@ -94,6 +98,11 @@ class App:
         return 0
 
     def update_mainLobby(self):
+        if self.hasEnded:
+            if self.endScreenTimer >= 30: self.hasEnded, self.endMessage, self.endScreenTimer = False, "", 0
+            else: self.endScreenTimer += 1
+            return 0
+
         #Check if user choses a button
         if pyxel.btnp(pyxel.KEY_RETURN):
             if self.mainLobbyButton == 0: 
@@ -131,6 +140,7 @@ class App:
         return 0
 
     def draw_mainLobby(self):
+        if self.hasEnded: pyxel.text(0, 0, self.endMessage, 7) ; return 0
         pyxel.stop(0)
         pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(20, 50, "REJOINDRE UNE PARTIE:", [1, 7, 7, 1][self.mainLobbyButton])
@@ -278,6 +288,17 @@ class App:
         return 0
     
     def update_inGame(self):
+        if self.gameMode == "COOP" and self.gameInfos["lives"] <= 0:
+            self.client.send("hasEnded|Lost:You have no more lives".encode("utf-8"))
+            self.hasEnded, self.endMessage = True, "Lost:You have no more lives"
+            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, ""
+            return 0
+        elif self.gameMode == "VS" and self.gameInfos["players"][self.playerNumber]["lives"] <= 0: 
+            self.client.send("hasEnded|Won:Your opponent died before you".encode("utf-8"))
+            self.hasEnded, self.endMessage = True, "Lost:You died before your opponent"
+            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, ""
+            return 0
+
         action = "None" # Resets the shot
         MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2 #Modifies the speed in function of the bonus
 
@@ -361,7 +382,9 @@ class App:
             
             srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
             for msg in srvMsg:
-                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, "" ; exit(0)
+                if msg[0] == "main": 
+                    if msg[1][:4] == "Lost" or msg[1][:3] == "Won": self.hasEnded, self.endMessage = True, msg[1]
+                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, "" ; exit(0)
                 if len(msg) != 6 or msg[0] != "infos": return 1
                 ennToRem = eval(msg[3])
                 for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
@@ -384,24 +407,41 @@ class App:
         
     def lowerEnnemies(self):      
         ennemyDelay = time()
-        self.gameInfos["level"] += 1
         while self.currentState == "inGame": 
             curTime = time()
             ennemyDiff = round(curTime-ennemyDelay)
             ennemyDiff *= self.gameInfos["level"]
+
+            if len(self.gameInfos["forbidEnn"]) == len(COOP_ENNEMIES_POSITION): 
+                self.gameInfos["level"] += 1
+                self.gameInfos["score"] += 100
+                self.gameInfos["forbidEnn"] = []
+                self.gameInfos["ennemies"] = COOP_ENNEMIES_POSITION
+                ennemyDelay = curTime
+
+            invaded = False
+
+            for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
+                if ennemyIndex in self.gameInfos["forbidEnn"]: continue
+                if ennemy[2] >= 128: invaded = True ; break 
+                
+            if invaded: print("YOU LET AN ENNEMY INVADE THE STAR !")
+
             if ennemyDiff == 0: continue
             ennemyDelay = curTime
-            try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"] if ennemy[2] < 144]
-            except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
+            try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"]]
+            except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)")
 
     def ennemiesCollisions(self):
         while self.currentState == "inGame":
             for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
                 if ennemyIndex in self.gameInfos["forbidEnn"]: continue
-                tempInfos0 = self.gameInfos["players"][0]["coords"]
-                tempInfos1 = self.gameInfos["players"][1]["coords"]
-                tempInfos0 = [(x, y) for x in range(tempInfos0[0], tempInfos0[0] + 15) for y in range(tempInfos0[1], tempInfos0[1] + 16)]
-                tempInfos1 = [(x, y) for x in range(tempInfos1[0], tempInfos1[0] + 15) for y in range(tempInfos1[1], tempInfos1[1] + 16)]
+                try:
+                    tempInfos0 = self.gameInfos["players"][0]["coords"]
+                    tempInfos1 = self.gameInfos["players"][1]["coords"]
+                    tempInfos0 = [(x, y) for x in range(tempInfos0[0], tempInfos0[0] + 15) for y in range(tempInfos0[1], tempInfos0[1] + 16)]
+                    tempInfos1 = [(x, y) for x in range(tempInfos1[0], tempInfos1[0] + 15) for y in range(tempInfos1[1], tempInfos1[1] + 16)]
+                except: pass
                 if  (
                     ((ennemy[1],ennemy[2]) in tempInfos0)
                     or ((ennemy[1], ennemy[2]+16) in tempInfos0)
@@ -437,6 +477,8 @@ class App:
                         or ((rocket[0]+1, rocket[1]) in tempInfos)
                         ):
                         self.gameInfos["forbidEnn"].append(ennemyIndex)
+                        try: self.gameInfos["rockets"].remove(rocket)
+                        except: pass
                         if self.gameMode == "COOP": self.gameInfos["score"] += 10 ; continue
                         # NEED to Increment score for VS
 
