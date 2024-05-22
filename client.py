@@ -331,7 +331,7 @@ class App:
         if self.gameMode == "COOP":
             pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
             pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-            for ennemyIndex, ennemy in enumerate([[0, 0, 0], [1, 20, 0], [2, 40, 0], [2, 60, 0]]): 
+            for ennemyIndex, ennemy in enumerate([[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]): 
                 if ennemyIndex not in self.gameInfos["forbidEnn"]: pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
         else:
             pyxel.rect(106, 0, 16, 128, 7)
