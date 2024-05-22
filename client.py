@@ -199,8 +199,8 @@ class App:
             elif self.createLobbyButton == 2:
                 #Sets up the variables for later use
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
-                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
+                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "ennemies" : [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1 #Verify the answer format
@@ -331,8 +331,6 @@ class App:
         if self.gameMode == "COOP":
             pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
             pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
-            for ennemyIndex, ennemy in enumerate([[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]): 
-                if ennemyIndex not in self.gameInfos["forbidEnn"]: pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
         else:
             pyxel.rect(106, 0, 16, 128, 7)
             pyxel.text(0, 0, f"lives:{self.gameInfos['players'][0]['lives']}", 7)
@@ -341,7 +339,9 @@ class App:
             pyxel.text(200, 10, f"score:{self.gameInfos['players'][1]['score']}", 7)
 
         pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
-
+        for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]): 
+            if ennemyIndex not in self.gameInfos["forbidEnn"]: pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
+        
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
 
