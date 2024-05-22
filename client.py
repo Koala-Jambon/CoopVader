@@ -101,7 +101,7 @@ class App:
                 pyxel.quit() #Close program
                 
             #Updates variables in function of the button the user pressed
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "ennemies": [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies": [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
@@ -162,6 +162,7 @@ class App:
                     threading.Thread(target=self.getServerMessageInGame, daemon=True).start()
                     threading.Thread(target=self.higherRockets, daemon=True).start()
                     threading.Thread(target=self.bonusThread, daemon=True).start()
+                    threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -199,8 +200,8 @@ class App:
             elif self.createLobbyButton == 2:
                 #Sets up the variables for later use
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
-                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "ennemies" : [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
+                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1 #Verify the answer format
@@ -257,6 +258,7 @@ class App:
             threading.Thread(target=self.getServerMessageInGame, daemon=True).start() 
             threading.Thread(target=self.higherRockets, daemon=True).start()
             threading.Thread(target=self.bonusThread, daemon=True).start()
+            threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
             self.gameNumber = int(srvMsg[1])
         sleep(1)
         return 0
@@ -290,9 +292,9 @@ class App:
         #Rockets
         if pyxel.btn(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: 
             tempCoords = self.gameInfos['players'][0]['coords'] #Save coords the moment you shot to create no difference between what the server sees and what you see
-            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append(tempCoords) #Says you shot and reset the shot delay ; Creates the rocket
+            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append([tempCoords[0]+7, tempCoords[1]]) #Says you shot and reset the shot delay ; Creates the rocket
             #Creates more rockets if you have a bonus
-            if self.gameInfos["bonus"] > 0: action += "+" ; self.gameInfos['rockets'].append([tempCoords[0]+10, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-10, tempCoords[1]])
+            if self.gameInfos["bonus"] > 0: action += "+" ; self.gameInfos['rockets'].append([tempCoords[0]+17, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-3, tempCoords[1]])
 
         #Gamemode specifications
         if self.gameMode == "VS":
@@ -340,7 +342,8 @@ class App:
 
         pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
         for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]): 
-            if ennemyIndex not in self.gameInfos["forbidEnn"]: pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
+            if ennemyIndex  in self.gameInfos["forbidEnn"]: continue
+            pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
         
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
@@ -364,13 +367,6 @@ class App:
                 for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
             srvMsg = srvMsg[0]
 
-            if self.gameMode == "VS":
-                self.gameInfos["players"][1]["lives"] = int(srvMsg[1])
-                self.gameInfos["players"][1]["score"] = int(srvMsg[2])
-            else:
-                self.gameInfos["lives"] = int(srvMsg[1])
-                self.gameInfos["score"] = int(srvMsg[2])
-
             self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
 
     #Makes the rockets move upwards in functin of when theybmoved last (so lag does not make them move slower)
@@ -384,6 +380,52 @@ class App:
             try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
         
+    def ennemiesCollisions(self):
+        while self.currentState == "inGame":
+            for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
+                if ennemyIndex in self.gameInfos["forbidEnn"]: continue
+                tempInfos0 = self.gameInfos["players"][0]["coords"]
+                tempInfos1 = self.gameInfos["players"][1]["coords"]
+                tempInfos0 = [(x, y) for x in range(tempInfos0[0], tempInfos0[0] + 15) for y in range(tempInfos0[1], tempInfos0[1] + 16)]
+                tempInfos1 = [(x, y) for x in range(tempInfos1[0], tempInfos1[0] + 15) for y in range(tempInfos1[1], tempInfos1[1] + 16)]
+                if  (
+                    ((ennemy[1],ennemy[2]) in tempInfos0)
+                    or ((ennemy[1], ennemy[2]+16) in tempInfos0)
+                    or ((ennemy[1]+16, ennemy[2]+16) in tempInfos0)
+                    or ((ennemy[1]+16, ennemy[2]) in tempInfos0)
+                    ):
+                    if self.gameMode == "COOP": 
+                        self.gameInfos["lives"] -= 1
+                        self.gameInfos["players"][0]["coords"] = [114, 104]
+                    else: 
+                        self.gameInfos["players"][0]["lives"] -= 1
+                        self.gameInfos["players"][0]["coords"] = [34, 104]
+
+                if  (
+                    ((ennemy[1],ennemy[2]) in tempInfos1)
+                    or ((ennemy[1], ennemy[2]+16) in tempInfos1)
+                    or ((ennemy[1]+16, ennemy[2]+16) in tempInfos1)
+                    or ((ennemy[1]+16, ennemy[2]) in tempInfos1)
+                    ):
+                    if self.gameMode == "COOP": 
+                        self.gameInfos["lives"] -= 1
+                        self.gameInfos["players"][1]["coords"] = [114, 104]
+                    else: 
+                        self.gameInfos["players"][1]["lives"] -= 1
+                        self.gameInfos["players"][1]["coords"] = [194, 104]
+
+                tempInfos = tempInfos = [(x, y) for x in range(ennemy[1], ennemy[1] + 15) for y in range(ennemy[2], ennemy[2] + 16)]
+                for rocket in self.gameInfos["rockets"]:
+                    if  (
+                        ((rocket[0],rocket[1]) in tempInfos)
+                        or ((rocket[0], rocket[1]+5) in tempInfos)
+                        or ((rocket[0]+1, rocket[1]+5) in tempInfos)
+                        or ((rocket[0]+1, rocket[1]) in tempInfos)
+                        ):
+                        self.gameInfos["forbidEnn"].append(ennemyIndex)
+                        if self.gameMode == "COOP": self.gameInfos["score"] += 10 ; continue
+                        # NEED to Increment score for VS
+
     #Creates and handles the bonus
     def bonusThread(self):
         global bonusList
@@ -419,6 +461,9 @@ if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
     else: os.system("cls")
 
+    COOP_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
+    VS_ENNEMIES_POSITION = []
+
     #Connect to server
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
     try: client.connect(("localhost", 20101))
@@ -428,3 +473,4 @@ if __name__ == "__main__":
 
     #Start application
     App(client)
+
