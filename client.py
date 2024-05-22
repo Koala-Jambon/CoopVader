@@ -33,7 +33,7 @@ class App:
         self.musicPlayingWaitGame = False
         
         #inGame:
-        self.gameInfos, self.lastShot = {"rockets" : []}, 0
+        self.gameInfos, self.lastShot = {"level" : 0, "forbidEnn" : [], "rockets" : []}, 0
         self.curBonus = [[-10, -10], 0]
 
         #Pyxel:
@@ -101,7 +101,7 @@ class App:
                 pyxel.quit() #Close program
                 
             #Updates variables in function of the button the user pressed
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"level" : 0, "bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
@@ -163,6 +163,7 @@ class App:
                     threading.Thread(target=self.higherRockets, daemon=True).start()
                     threading.Thread(target=self.bonusThread, daemon=True).start()
                     threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
+                    threading.Thread(target=self.lowerEnnemies, daemon=True).start()
                     self.gameNumber = self.joinLobbyButton
                     return 0
 
@@ -200,8 +201,8 @@ class App:
             elif self.createLobbyButton == 2:
                 #Sets up the variables for later use
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
-                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
-                elif self.gameMode == "COOP": self.gameInfos = {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
+                if self.gameMode == "VS": self.gameInfos = {"level" : 0, "bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
                 if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1 #Verify the answer format
@@ -259,6 +260,7 @@ class App:
             threading.Thread(target=self.higherRockets, daemon=True).start()
             threading.Thread(target=self.bonusThread, daemon=True).start()
             threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
+            threading.Thread(target=self.lowerEnnemies, daemon=True).start()
             self.gameNumber = int(srvMsg[1])
         sleep(1)
         return 0
@@ -359,7 +361,7 @@ class App:
             
             srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
             for msg in srvMsg:
-                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"rockets" : [], "players" : [[], []]}, "" ; exit(0)
+                if msg[0] == "main": self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, "" ; exit(0)
                 if len(msg) != 6 or msg[0] != "infos": return 1
                 ennToRem = eval(msg[3])
                 for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
@@ -380,6 +382,18 @@ class App:
             try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
             except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
         
+    def lowerEnnemies(self):      
+        ennemyDelay = time()
+        self.gameInfos["level"] += 1
+        while self.currentState == "inGame": 
+            curTime = time()
+            ennemyDiff = round(curTime-ennemyDelay)
+            ennemyDiff *= self.gameInfos["level"]
+            if ennemyDiff == 0: continue
+            ennemyDelay = curTime
+            try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"] if ennemy[2] < 144]
+            except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
+
     def ennemiesCollisions(self):
         while self.currentState == "inGame":
             for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
