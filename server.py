@@ -179,6 +179,7 @@ class ClientClass:
             if self.gameMode == "VS": self.clientValue.send(f"infos|{tempInfos['players'][self.playerNumber-1]['lives']}|{tempInfos['players'][self.playerNumber-1]['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
             else: self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
             for newRock in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
+            #for newEnn in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"].remove(newEnn)
 
 def executeAdmin():
     global exitProgramm
