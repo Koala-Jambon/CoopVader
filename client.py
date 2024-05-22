@@ -101,7 +101,7 @@ class App:
                 pyxel.quit() #Close program
                 
             #Updates variables in function of the button the user pressed
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "ennemies": [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"lives" : 3, "score" : 0, "bonus" : 0, "ennemies": [], "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
@@ -318,14 +318,14 @@ class App:
             GAP_CONSTP0 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber]) < 16 else 0
             GAP_CONSTP1 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber-1]) < 16 else 0
 
-        pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 16, 0, 16, 16)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
+        pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
         
         #To make you appear to the other side:
-        if self.gameMode != "VS" or self.playerNumber != 0: pyxel.rect(self.gameInfos["players"][0]["coords"][0]+GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
-        if self.gameMode != "VS" or self.playerNumber - 1 != 0: pyxel.rect(self.gameInfos["players"][1]["coords"][0]+GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
-        pyxel.rect(self.gameInfos["players"][0]["coords"][0]-GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 15, 16, 11)
-        pyxel.rect(self.gameInfos["players"][1]["coords"][0]-GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 15, 16, 6)
+        if self.gameMode != "VS" or self.playerNumber != 0: pyxel.blt(self.gameInfos["players"][0]["coords"][0]+GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        if self.gameMode != "VS" or self.playerNumber - 1 != 0: pyxel.blt(self.gameInfos["players"][1]["coords"][0]+GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][0]["coords"][0]-GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][1]["coords"][0]-GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
 
         pyxel.text(0, 20, f"urBonus:{self.gameInfos['bonus']}", 7)
         if self.gameMode == "COOP":
