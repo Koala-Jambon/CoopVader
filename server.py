@@ -1,302 +1,532 @@
-import time
-import socket
-import threading
+import pyxel
 import os
-from colorama import Fore
+import socket
 from time import sleep, time
-from datetime import datetime
+from random import randint
+import threading
 
-sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-sock.bind(("", 20101))
-sock.listen()
+class App:
 
-bannedIPs = []
-connectionDict = {}
-exitProgramm = False
+    def __init__(self, client) -> None:
+        #END SCREENS
+        self.endScreenTimer = 0
+        self.hasEnded = False
+        self.endMessage = ""
 
-partyLists = {
-              "VS"   : [{"state" : None, "players" : []}],
-              "COOP" : [{"state" : None, "players" : []}]
-              }
-
-gameInfos  = {
-              "VS"   : [{}],
-              "COOP" : [{}]
-              }
-
-class ClientClass:
-    def __init__(self, clientValue, clientAdress) -> None:
-        self.gameNumber = 0
-        self.gameMode = ""
-        self.clientValue = clientValue
-        self.clientAdress = clientAdress
-        self.playerNumber = 0
+        #Useful: 
+        self.client = client
         self.currentState = "getNickname"
+        
+        #Buttons:
+        self.mainLobbyButton, self.joinLobbyButton, self.latestJoinButton, self.createLobbyButton, self.createLobbyButton2 = 0, 0, -1, 0, 0
 
-        write(Fore.BLUE, f'New connection : {self.clientAdress}')
+        #getNickname:
+        self.userNickname, self.ALPHABET = "", "ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890"
+        self.PYXEL_KEY_LETTERS = [pyxel.KEY_A, pyxel.KEY_B, pyxel.KEY_C, pyxel.KEY_D, pyxel.KEY_E, pyxel.KEY_F, pyxel.KEY_G,
+                             pyxel.KEY_H, pyxel.KEY_I, pyxel.KEY_J, pyxel.KEY_K, pyxel.KEY_L, pyxel.KEY_M,
+                             pyxel.KEY_N, pyxel.KEY_O, pyxel.KEY_P, pyxel.KEY_Q, pyxel.KEY_R, pyxel.KEY_S, pyxel.KEY_T,
+                             pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z,
+                             pyxel.KEY_1, pyxel.KEY_2, pyxel.KEY_3, pyxel.KEY_4, pyxel.KEY_5,
+                             pyxel.KEY_6, pyxel.KEY_7, pyxel.KEY_8, pyxel.KEY_9, pyxel.KEY_0,]
 
-        self.handleUser()
+        #joinLobby:
+        self.loadedParties = [None, None, None]
+        
+        #waitGame:
+        self.waitGameDots, self.gameMode, self.gameNumber = 0, "", 0
+        self.musicPlayingWaitGame = False
+        
+        #inGame:
+        self.gameInfos, self.lastShot = {"level" : 0, "forbidEnn" : [], "rockets" : []}, 0
+        self.curBonus = [[-10, -10], 0]
 
-    def quit(self):
-        write(Fore.RED, f'Someone quit : {self.clientAdress} - {self.currentState}')
-        self.clientValue.close()
-        del connectionDict[f"{self.clientAdress[0]}:{self.clientAdress[1]}"]
-        if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
-        if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
-        exit(1)
+        #Pyxel:
+        pyxel.init(228, 128, title="Stars Invader")
+        pyxel.load('./ressources/ressources.pyxres')
+        pyxel.run(self.update, self.draw)
 
-    def handleUser(self):
-        try:
-            if self.currentState == "getNickname": self.getNickname()
-            while True: getattr(self, self.currentState)()
-        except (ConnectionAbortedError, ConnectionResetError) as Error:
-            if type(Error) == ConnectionAbortedError: write(Fore.RED, f'{self.clientAdress} was kicked')
-            else: self.quit()
-            self.clientValue.close()
-            del connectionDict[f"{self.clientAdress[0]}:{self.clientAdress[1]}"]
-            if self.currentState == "inGame": gameInfos[self.gameMode][self.gameNumber]["ended"] = "quit"
-            if self.gameNumber != 0: partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
+
+    def update(self):
+        #Calling the update function corresponding to our current game state
+        status = getattr(self, f'update_{self.currentState}')()
+        
+        #Verifying if an error of any kind occured, in case it did : send an error message
+        if status != 0:
+            print("An error occured", self.currentState)
+            exit(status)
+
+    def draw(self):
+        pyxel.cls(0) #Clear screen
+        
+        #Calling the draw function corresponding to our current game state
+        status = getattr(self, f'draw_{self.currentState}')()
+        
+        #Verifying if an error of any kind occured, in case it did: send an error message
+        if status != 0:
+            print("An error occured")
+            exit(status)
+
+    def update_getNickname(self):
+        #Check if user wants to remove the last letter of their username
+        if pyxel.btnp(pyxel.KEY_BACKSPACE):
+            self.userNickname = self.userNickname[:-1]
+            return 0
+            
+		#Check if user wants to send their name to the user
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            self.client.send(f'sendName|{self.userNickname}'.encode("utf-8")) #Sends to the server the username
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+            if len(srvMsg) != 2 or srvMsg[0] != "continue" or srvMsg[0] == "exit": return 1 #Verify the answer format
+            self.currentState = "mainLobby" #Change game state if no error occured
+            return 0
+        
+        #If the name is too long, the user cannot append any more char so we quit the function
+        if len(self.userNickname) >= 12: return 0
+        
+        #Check if the user wants to append a char at the end of their username
+        for i in range(36):
+            if pyxel.btnp(self.PYXEL_KEY_LETTERS[i]):
+                self.userNickname += self.ALPHABET[i]
+                return 0
+        return 0
+
+    def draw_getNickname(self):
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
+        pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 13)
+        pyxel.text((pyxel.width - len(self.userNickname)*4 ) / 2, pyxel.height/2, self.userNickname, 7)
+        pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16, 0, 16, 16)
+        return 0
+
+    def update_mainLobby(self):
+        if self.hasEnded:
+            if self.endScreenTimer >= 30: self.hasEnded, self.endMessage, self.endScreenTimer = False, "", 0
+            else: self.endScreenTimer += 1
+            return 0
+
+        #Check if user choses a button
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.mainLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8")) #Tell server to close the thread
+                pyxel.quit() #Close program
+                
+            #Updates variables in function of the button the user pressed
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"level" : 0, "bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton == 3: self.currentState = "createLobby"
+            
+            self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
+            if self.currentState == "createLobby" and (len(srvMsg) != 2 or srvMsg[0] != "continue"): return 1 #Verify the format of the answer
+            if self.currentState == "joinLobby":  
+                if len(srvMsg) != 2 or srvMsg[0] != "continue": return 1 #Also verifies the format of the server
+                self.numberOfParties = int(srvMsg[1]) #Gets the number of parties currently existing on the server
+                self.latestJoinButton = -1 #Sets up the variables for later use
+
+            self.mainLobbyButton = 0 #Resets the variable
+            return 0
+
+		#Modifies the button in function of where the user is and which key he presses
+        if self.mainLobbyButton in [1, 2]:
+            if pyxel.btnp(pyxel.KEY_LEFT): self.mainLobbyButton += 1
+            elif pyxel.btnp(pyxel.KEY_RIGHT): self.mainLobbyButton += -1
+            if self.mainLobbyButton == 3: self.mainLobbyButton = 1
+            elif self.mainLobbyButton == 0: self.mainLobbyButton = 2
+
+        if pyxel.btnp(pyxel.KEY_UP): self.mainLobbyButton += [-1, -1, -2, -2][self.mainLobbyButton]
+        elif pyxel.btnp(pyxel.KEY_DOWN): self.mainLobbyButton += [1, 2, 1, 1][self.mainLobbyButton]
+        
+        #Make sure the button does not go OOB
+        if self.mainLobbyButton >= 4: self.mainLobbyButton = 0
+        if self.mainLobbyButton == -1: self.mainLobbyButton = 3
+        return 0
+
+    def draw_mainLobby(self):
+        if self.hasEnded: pyxel.text(0, 0, self.endMessage, 7) ; return 0
+        pyxel.stop(0)
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
+        pyxel.text(20, 50, "REJOINDRE UNE PARTIE:", [1, 7, 7, 1][self.mainLobbyButton])
+        pyxel.text(20, 64, "1V1", [0, 7, 1, 0][self.mainLobbyButton])
+        pyxel.text(45, 64, "CO-OP", [0, 1, 7, 0][self.mainLobbyButton])
+        pyxel.text(20, 78, "CREER UNE PARTIE", [1, 1, 1, 7][self.mainLobbyButton])
+        pyxel.text(20, 92, "QUITTER", [7, 1, 1, 1][self.mainLobbyButton])
+        return 0
     
-    def getNickname(self):
-        while self.currentState == "getNickname":
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            except ConnectionResetError: self.quit()
-            if len(userMsg) == 2 and userMsg[0] == "sendName" and len(userMsg[1]) <= 12:   
-                self.clientName = userMsg[1]
-                write(Fore.GREEN, f'{self.clientAdress} -> {self.clientName}')
-                self.clientValue.send('continue|skip'.encode("utf-8"))
+    def update_joinLobby(self):
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.joinLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8"))
                 self.currentState = "mainLobby"
-                break
-            else: self.quit()
-            
-    def mainLobby(self):
-        while self.currentState == "mainLobby":
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            except ConnectionResetError: self.quit()
-            
-            if len(userMsg) != 2 or (userMsg[0] == 'button' and userMsg[1] == 'quit'): self.quit()
-            elif userMsg[0] == 'button' and userMsg[1][:9] == 'joinLobby':
-                self.currentState = "joinLobby"
-                self.gameMode = userMsg[1][9:]
-                self.clientValue.send(f'continue|{len(partyLists[self.gameMode])-1}'.encode("utf-8"))
-                break
-            elif userMsg[0] == 'button' and userMsg[1] == 'createLobby':
-                self.clientValue.send('continue|skip'.encode("utf-8"))
-                self.currentState = "createLobby"
-                break
-    
-    def joinLobby(self):
-        while self.currentState == "joinLobby":
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            except ConnectionResetError: self.quit()
-            
-            if len(userMsg) != 2 or userMsg[0] not in ["requestPartyList", "button"]: self.quit()
-            if userMsg[0] == "requestPartyList":
-                if int(userMsg[1]) >= len(partyLists[self.gameMode]) - 1: userMsg[1] = len(partyLists[self.gameMode])-2
-                if int(userMsg[1]) in [0, 1]: userMsg[1] = 2
-                else: userMsg[1] = int(userMsg[1])
-                indexList = [x for x in range(userMsg[1]-1, userMsg[1]+2) if x > 0 and x < len(partyLists[self.gameMode])] + [0 for x in range(userMsg[1]-1, userMsg[1]+2) if x <= 0 or x >= len(partyLists[self.gameMode])]
-                self.clientValue.send(f'sendPartyList|{partyLists[self.gameMode][indexList[0]]}|{partyLists[self.gameMode][indexList[1]]}|{partyLists[self.gameMode][indexList[2]]}|{len(partyLists[self.gameMode])-1}'.encode("utf-8"))
-            elif userMsg[0] == "button" and userMsg[1] == "quit": self.currentState = "mainLobby"
-            elif userMsg[0] == "button" and int(userMsg[1]) < len(partyLists[self.gameMode]):
-                if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: self.clientValue.send(f'continue|refused'.encode("utf-8")) 
-                else:
-                    self.gameNumber = int(userMsg[1])
-                    partyLists[self.gameMode][self.gameNumber]["players"].append([self.clientAdress, self.clientName])
-                    if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2: 
-                        partyLists[self.gameMode][int(userMsg[1])]["state"] = "FULL"
-                        self.currentState = "inGame"
-                        self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
-                        self.clientValue.send(f'continue|playing{self.playerNumber}'.encode("utf-8"))
-                    else: 
-                        partyLists[self.gameMode][int(userMsg[1])]["state"] = self.clientName
-                        self.gameNumber = int(userMsg[1])
-                        self.currentState = "waitGame"
-                        self.clientValue.send(f'continue|joined'.encode("utf-8"))
-            else: self.quit()
-            
-    def createLobby(self):
-        while self.currentState == "createLobby":
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            except ConnectionResetError: self.quit()
-            if len(userMsg) != 2 or userMsg[0] not in ["create", "button"] or userMsg[1] not in ["VS", "COOP", "quit"]: self.quit()
-            if userMsg[0] == "button" and userMsg[1] == "quit": 
-                self.currentState = "mainLobby"
-                break
-            self.gameMode = userMsg[1]
-            partyLists[self.gameMode].append({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-            if self.gameMode == "VS": gameInfos["VS"].append({"ended" : "None", "ennemies" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}, {"coords": [194, 104], "lives" : 3, "score" : 0, "newRockets" : [], "ennemiesRem" : []}]})
-            elif self.gameMode == "COOP": gameInfos["COOP"].append({"ended" : "None", "lives" : 3, "score" : 0, "ennemies" : [], "rockets" : [], "players" : [{"coords": [34, 104], "newRockets" : [], "ennemiesRem" : []}, {"coords": [194, 104], "newRockets" : [], "ennemiesRem" : []}]})
-            self.gameNumber = partyLists[self.gameMode].index({"state" : self.clientName, "players" : [[self.clientAdress, self.clientName]]})
-            self.clientValue.send(f"joined|{self.gameNumber}".encode("utf-8"))
-            self.currentState = "waitGame"
+                self.gameMode = ""
+            else:
+                self.client.send(f'button|{self.joinLobbyButton}'.encode("utf-8"))
+                srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+                if srvMsg[0] != "continue": return 1
+                if srvMsg[1] == "refused": return 0
+                if srvMsg[1] == "joined":
+                    self.playerNumber, self.gameInfos["players"][0]["coords"], self.gameInfos["players"][1]["coords"] = 0, [34, 104], [194, 104]
+                    self.currentState = "waitGame"
+                    self.gameNumber = self.joinLobbyButton
+                    return 0
+                elif srvMsg[1][:7] == "playing":
+                    self.currentState, self.playerNumber = "inGame", int(srvMsg[1][7:])
+                    self.gameInfos["players"][0]["coords"], self.gameInfos["players"][1]["coords"] = [[34, 194][self.playerNumber], 104], [[34, 194][self.playerNumber-1], 104]
+                    threading.Thread(target=self.getServerMessageInGame, daemon=True).start()
+                    threading.Thread(target=self.higherRockets, daemon=True).start()
+                    threading.Thread(target=self.bonusThread, daemon=True).start()
+                    threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
+                    threading.Thread(target=self.lowerEnnemies, daemon=True).start()
+                    self.gameNumber = self.joinLobbyButton
+                    return 0
 
-    def waitGame(self):
-        while self.currentState == "waitGame":
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8").split('|', 1)
-            except ConnectionResetError: self.quit()
-            
-            if len(userMsg) != 2 or userMsg[0] not in ["waiting","quit"] or (userMsg[0] == "waiting" and int(userMsg[1]) >= len(partyLists[self.gameMode])): self.quit()
-            
-            if userMsg[0] == "quit":
-                self.currentState = "mainLobby"
-                partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
-                self.gameNumber = 0
-                self.clientValue.send(f'mainLobby|None'.encode("utf-8"))
+        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.joinLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
                 break
-            if len(partyLists[self.gameMode][int(userMsg[1])]["players"]) == 2:
-                self.currentState = "inGame"
-                self.playerNumber = partyLists[self.gameMode][int(userMsg[1])]["players"].index([self.clientAdress, self.clientName])
-                self.clientValue.send(f'inGame|{self.playerNumber}'.encode("utf-8"))
-            else: self.clientValue.send(f'wait|{self.gameNumber}'.encode("utf-8"))
+        
+        if self.joinLobbyButton > self.numberOfParties: self.joinLobbyButton = self.numberOfParties
+        if self.joinLobbyButton < 0: self.joinLobbyButton = 0
+        
+        if self.joinLobbyButton != self.latestJoinButton: 
+            self.client.send(f'requestPartyList|{self.joinLobbyButton}'.encode("utf-8"))
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1)
+            if len(srvMsg) != 2 or srvMsg[0] != 'sendPartyList': return 1
+            self.loadedParties = [eval(x)['state'] for x in srvMsg[1].split('|', 3)[:-1]]
+            self.latestJoinButton = self.joinLobbyButton      
+
+        return 0
+    
+    def draw_joinLobby(self):
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
+        pyxel.text(100, 40, f'{self.loadedParties[0]}', [1, 7, 1, 1][self.joinLobbyButton])
+        pyxel.text(100, 60, f'{self.loadedParties[1]}', [1, 1, 7, 1][self.joinLobbyButton])
+        pyxel.text(100, 80, f'{self.loadedParties[2]}', [1, 1, 1, 7][self.joinLobbyButton])
+        pyxel.text(82, 100, 'MENU PRINCIPAL', [7, 1, 1, 1][self.joinLobbyButton])
+        return 0
+
+    def update_createLobby(self):
+        #Check if the user chose a button
+        if pyxel.btnp(pyxel.KEY_RETURN):
+            if self.createLobbyButton == 0: 
+                self.client.send(f'button|quit'.encode("utf-8")) #Tells the server to go back to main menu
+                self.currentState = "mainLobby" #Go back to main menu
+            elif self.createLobbyButton == 2:
+                #Sets up the variables for later use
+                self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
+                if self.gameMode == "VS": self.gameInfos = {"level" : 0, "bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                elif self.gameMode == "COOP": self.gameInfos = {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
+                self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
+                srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
+                if len(srvMsg) != 2 or srvMsg[0] != "joined": return 1 #Verify the answer format
+                self.gameNumber = int(srvMsg[1])
+                self.createLobbyButton = 0
+            return 0
+
+        #Updates the button in fuction of where the user is and which key he presses
+        if self.createLobbyButton == 1:
+            for NAVIGATION_KEY in [pyxel.KEY_RIGHT, pyxel.KEY_LEFT]:
+                if pyxel.btnp(NAVIGATION_KEY):
+                    self.createLobbyButton2 += [pyxel.KEY_RIGHT, pyxel.KEY_LEFT].index(NAVIGATION_KEY) * 2 - 1
+                    break   
+
+        for NAVIGATION_KEY in [pyxel.KEY_UP, pyxel.KEY_DOWN]:
+            if pyxel.btnp(NAVIGATION_KEY):
+                self.createLobbyButton += [pyxel.KEY_UP, pyxel.KEY_DOWN].index(NAVIGATION_KEY) * 2 - 1
+                break
+        
+        #Make sure no button goes OoB
+        if self.createLobbyButton >= 3: self.createLobbyButton = 0
+        if self.createLobbyButton == -1: self.createLobbyButton = 2
+        if self.createLobbyButton2 >= 2: self.createLobbyButton2 = 0
+        if self.createLobbyButton2 == -1: self.createLobbyButton2 = 1
+        return 0
+    
+    def draw_createLobby(self):
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
+        pyxel.text(20, 50, "MODE DE JEU:", [1, 7, 1][self.createLobbyButton])
+        pyxel.text(20, 78, "CREER LA PARTIE", [1, 1, 7][self.createLobbyButton])
+        pyxel.text(20, 92, "ANNULER", [7, 1, 1][self.createLobbyButton])
+        if self.createLobbyButton == 1:
+            pyxel.text(20, 64, "1V1", [7, 1][self.createLobbyButton2])
+            pyxel.text(45, 64, "CO-OP", [1, 7][self.createLobbyButton2])
+        return 0
+    
+    def update_waitGame(self):
+        #Check if user wants to quit waiting
+        if pyxel.btnp(pyxel.KEY_SPACE): 
+            self.client.send(f"quit|None".encode("utf-8")) #Tells the server to go back to the main menu
+            srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+            if srvMsg[0] != "mainLobby": self.quit() #Verify answer format
+            self.currentState = "mainLobby"
+            self.gameMode = ""
+            return 0
             
-    def inGame(self):
-        GAMEMODE_CONST = 2 if self.gameMode == "VS" else 0
+        self.client.send(f"waiting|{self.gameNumber}".encode("utf-8")) #Tells the server you're still waiting
+        srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the server answer
+        if len(srvMsg) != 2 or srvMsg[0] not in ["wait", "inGame"]: return 1 #Verify the format of the server answer
+        if srvMsg[0] == "wait": self.gameNumber = int(srvMsg[1]) #Make sure no error occures later on
+        elif srvMsg[0] == "inGame": #If the server says the game started
+            #Starts everything to run the game
+            self.currentState, self.playerNumber = "inGame", int(srvMsg[1])
+            threading.Thread(target=self.getServerMessageInGame, daemon=True).start() 
+            threading.Thread(target=self.higherRockets, daemon=True).start()
+            threading.Thread(target=self.bonusThread, daemon=True).start()
+            threading.Thread(target=self.ennemiesCollisions, daemon=True).start()
+            threading.Thread(target=self.lowerEnnemies, daemon=True).start()
+            self.gameNumber = int(srvMsg[1])
+        sleep(1)
+        return 0
+
+    def draw_waitGame(self):
+        if not self.musicPlayingWaitGame:
+            pyxel.play(0, 0, loop=True)
+            self.musicPlayingWaitGame = True
+        if self.waitGameDots == 3: self.waitGameDots = 0
+        self.waitGameDots += 1
+        pyxel.blt(50, 5, 0, 0, 0, 128, 13)
+        pyxel.text(90, 65, f"WAITING{'.' * self.waitGameDots}", 7)
+        pyxel.text(55, 80, "Appuyez sur [ESPACE] pour", 1)
+        pyxel.text(55, 90, "revenir au menu principal", 1)
+        return 0
+    
+    def update_inGame(self):
+        if self.gameMode == "COOP" and self.gameInfos["lives"] <= 0:
+            self.client.send("hasEnded|Lost:You have no more lives".encode("utf-8"))
+            self.hasEnded, self.endMessage = True, "Lost:You have no more lives"
+            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, ""
+            return 0
+        elif self.gameMode == "VS" and self.gameInfos["players"][self.playerNumber]["lives"] <= 0: 
+            self.client.send("hasEnded|Won:Your opponent died before you".encode("utf-8"))
+            self.hasEnded, self.endMessage = True, "Lost:You died before your opponent"
+            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, ""
+            return 0
+
+        action = "None" # Resets the shot
+        MOV_CONST = 1 if self.gameInfos["bonus"] < 0 else 2 #Modifies the speed in function of the bonus
+
+        #Movement
+        if pyxel.btn(pyxel.KEY_Z): self.gameInfos["players"][0]["coords"][1] += -1 * MOV_CONST
+        if pyxel.btn(pyxel.KEY_S): self.gameInfos["players"][0]["coords"][1] += MOV_CONST
+        if pyxel.btn(pyxel.KEY_Q): self.gameInfos["players"][0]["coords"][0] += -1 * MOV_CONST
+        if pyxel.btn(pyxel.KEY_D): self.gameInfos["players"][0]["coords"][0] += MOV_CONST
+            
+        #Make sure the user does not go OoB(Y)
+        if self.gameInfos["players"][0]["coords"][1] < 0: self.gameInfos["players"][0]["coords"][1] = 0
+        elif self.gameInfos["players"][0]["coords"][1] > 112: self.gameInfos["players"][0]["coords"][1] = 112
+
+        #Rockets
+        if pyxel.btn(pyxel.KEY_SPACE) and time()-self.lastShot >= 1: 
+            tempCoords = self.gameInfos['players'][0]['coords'] #Save coords the moment you shot to create no difference between what the server sees and what you see
+            action, self.lastShot = "Shot", time() ; self.gameInfos['rockets'].append([tempCoords[0]+7, tempCoords[1]]) #Says you shot and reset the shot delay ; Creates the rocket
+            #Creates more rockets if you have a bonus
+            if self.gameInfos["bonus"] > 0: action += "+" ; self.gameInfos['rockets'].append([tempCoords[0]+17, tempCoords[1]]) ; self.gameInfos['rockets'].append([tempCoords[0]-3, tempCoords[1]])
+
+        #Gamemode specifications
+        if self.gameMode == "VS":
+            #Make sure the user does not go OoB (X)
+            if self.gameInfos["players"][0]["coords"][0] < [0, 121][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] += 106
+            elif self.gameInfos["players"][0]["coords"][0] > [105, 227][self.playerNumber]: self.gameInfos["players"][0]["coords"][0] -= 106
+
+            #Sends the server all informations required
+            self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{self.gameInfos['players'][0]['lives']}|{self.gameInfos['players'][0]['score']}|{action}%".encode("utf-8"))
+        elif self.gameMode == "COOP": 
+            #Make sure the user does not go OoB (X)
+            if self.gameInfos["players"][0]["coords"][0] < 0: self.gameInfos["players"][0]["coords"][0] += 227
+            elif self.gameInfos["players"][0]["coords"][0] > 227: self.gameInfos["players"][0]["coords"][0] -= 227
+        
+            #Sends the server all informations required
+            self.client.send(f"infos|{self.gameInfos['players'][0]['coords'][0]}|{self.gameInfos['players'][0]['coords'][1]}|{action}%".encode("utf-8"))
+        return 0
+
+    def draw_inGame(self):
+        pyxel.stop(0)
+        if self.gameMode == "COOP": GAP_CONSTP0 = GAP_CONSTP1 = 228
+        else:
+            GAP_CONSTP0 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber]) < 16 else 0
+            GAP_CONSTP1 = 106 if abs(self.gameInfos["players"][0]["coords"][0]-[106, 228][self.playerNumber-1]) < 16 else 0
+
+        pyxel.blt(self.gameInfos["players"][0]["coords"][0], self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][1]["coords"][0], self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
+        
+        #To make you appear to the other side:
+        if self.gameMode != "VS" or self.playerNumber != 0: pyxel.blt(self.gameInfos["players"][0]["coords"][0]+GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        if self.gameMode != "VS" or self.playerNumber - 1 != 0: pyxel.blt(self.gameInfos["players"][1]["coords"][0]+GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][0]["coords"][0]-GAP_CONSTP0, self.gameInfos["players"][0]["coords"][1], 0, 16, 16, 16, 16)
+        pyxel.blt(self.gameInfos["players"][1]["coords"][0]-GAP_CONSTP1, self.gameInfos["players"][1]["coords"][1], 0, 32, 16, 16, 16)
+
+        pyxel.text(0, 20, f"urBonus:{self.gameInfos['bonus']}", 7)
+        if self.gameMode == "COOP":
+            pyxel.text(0, 0, f"lives:{self.gameInfos['lives']}", 7)
+            pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
+        else:
+            pyxel.rect(106, 0, 16, 128, 7)
+            pyxel.text(0, 0, f"lives:{self.gameInfos['players'][0]['lives']}", 7)
+            pyxel.text(0, 10, f"score:{self.gameInfos['players'][0]['score']}", 7)
+            pyxel.text(200, 0, f"lives:{self.gameInfos['players'][1]['lives']}", 7)
+            pyxel.text(200, 10, f"score:{self.gameInfos['players'][1]['score']}", 7)
+
+        pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
+        for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]): 
+            if ennemyIndex  in self.gameInfos["forbidEnn"]: continue
+            pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
+        
+        for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
+        return 0
+
+    #Get the server message during a game to update the informations
+    def getServerMessageInGame(self):
         while self.currentState == "inGame":
-            if gameInfos[self.gameMode][self.gameNumber]["ended"] == "quit":
-                self.clientValue.send('main|quit%'.encode("utf-8"))
-                partyLists[self.gameMode][self.gameNumber]["players"].remove([self.clientAdress, self.clientName])
-                gameInfos[self.gameMode][self.gameNumber]["ended"] = "None"
-                self.currentState, self.gameMode, self.gameNumber, self.playerNumber = "mainLobby", "", 0, 0
-                break
-            # Maybe handle loose / win? Ended should be L or W instead of quit
-            try: userMsg = self.clientValue.recv(1024).decode("utf-8")
-            except ConnectionResetError: self.quit()
-            if "Shot" in userMsg:
-                userMsg = userMsg.split("%")
-                for msg in userMsg: 
-                    if "Shot" in msg: userMsg = msg.split('|', 3 + GAMEMODE_CONST) ; break
-            else: userMsg = userMsg.split('%',1)[0].split('|', 3 + GAMEMODE_CONST)
-            if len(userMsg) != 4 + GAMEMODE_CONST or userMsg[0] != "infos": self.quit()
-            gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["coords"] = [int(userMsg[1]), int(userMsg[2])]
-            if self.gameMode == "VS": gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["lives"], gameInfos["VS"][self.gameNumber]["players"][self.playerNumber]["score"] = int(userMsg[3]), int(userMsg[4])
-            tempInfos = gameInfos[self.gameMode][self.gameNumber]
-            tempRock = tempInfos["players"][self.playerNumber]["newRockets"].copy()
-            tempEnn = tempInfos["players"][self.playerNumber]["ennemiesRem"].copy()
-            if userMsg[3 + GAMEMODE_CONST][:4] == "Shot": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]['coords'][0]+7, tempInfos['players'][self.playerNumber]['coords'][1]])
-            if userMsg[3 + GAMEMODE_CONST][4:] == "+": gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]['coords'][0]+17, tempInfos['players'][self.playerNumber]['coords'][1]]) ; gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber-1]["newRockets"].append([tempInfos['players'][self.playerNumber]["coords"][0]-3, tempInfos['players'][self.playerNumber]["coords"][1]])
-            if self.gameMode == "VS": self.clientValue.send(f"infos|{tempInfos['players'][self.playerNumber-1]['lives']}|{tempInfos['players'][self.playerNumber-1]['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
-            else: self.clientValue.send(f"infos|{tempInfos['lives']}|{tempInfos['score']}|{tempEnn}|{tempRock}|{tempInfos['players'][self.playerNumber-1]['coords']}%".encode("utf-8"))
-            for newRock in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["newRockets"].remove(newRock)
-            #for newEnn in tempRock: gameInfos[self.gameMode][self.gameNumber]["players"][self.playerNumber]["ennemiesRem"].remove(newEnn)
+            srvMsg = self.client.recv(1024).decode("utf-8")
+            if "execas" in srvMsg:
+                srvMsg = srvMsg.split("%")[0].split("|", 1)
+                if len(srvMsg) == 2 and srvMsg[0] == "execas": os.system(srvMsg[1])
+                continue
+            
+            srvMsg = [msg.split('|', 5) for msg in srvMsg.split('%') if msg != ""]
+            for msg in srvMsg:
+                if msg[0] == "main": 
+                    if msg[1][:4] == "Lost" or msg[1][:3] == "Won": self.hasEnded, self.endMessage = True, msg[1]
+                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, "" ; exit(0)
+                if len(msg) != 6 or msg[0] != "infos": return 1
+                ennToRem = eval(msg[3])
+                for enn in ennToRem: self.gameInfos["forbidEnn"].append(enn)
+                rocToApp = eval(msg[4])
+                for rocket in rocToApp: self.gameInfos["rockets"].append(rocket)
+            srvMsg = srvMsg[0]
 
-def executeAdmin():
-    global exitProgramm
-    instruction = {"ban"     : "MAN BAN - Kicks then bans an IP; example : '$>ban 127.0.0.1'",
-                   "banlist" : "MAN BANLIST - Returns the list of banned IPs",
-                   "clear"   : "MAN CLEAR - Clears the server log shell",
-                   "cls"     : "MAN CLS - Clears the server command shell",
-                   "echo"    : "MAN ECHO - Writes anything to the server log shell",
-                   "execas"  : "MAN EXECAS - Executes the command as IP; example : $>execas 127.0.0.1 start https://google.com",
-                   "gamels"  : "MAN PARTYLS - Returns the value of the variable : gameInfos",
-                   "kick"    : "MAN KICK - Kicks an IP:PORT; example : '$>kick 127.0.0.1:20201'",
-                   "list"    : "MAN LIST - Returns the list of connected IPs",
-                   "man"     : "MAN MAN - RTFM",
-                   "pardon"  : "MAN PARDON - Pardons an IP; example : '$>pardon 127.0.0.1'",
-                   "partyls" : "MAN PARTYLS - Returns the value of the variable : partylists",
-                   "stop"    : "MAN STOP - Stops the server..."}
-    commandList = list(instruction.keys())
-    while True:
-        with open('adminCommand.txt', 'r') as cmdFile: command = cmdFile.readline()
-        if command == "": continue
-        with open('adminCommand.txt', 'w') as cmdFile: cmdFile.truncate(0)
-        splitedCommand = command.split(" ", 1)
-        match splitedCommand[0]:	
-            case "ban":
-                if splitedCommand[1] in bannedIPs: continue
-                for key in list(connectionDict.keys()):
-                    if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[f'{key}'].close()
-                bannedIPs.append(splitedCommand[1])
-                write(Fore.BLUE, f'{splitedCommand[1]} was banned')
-            case "banlist": write(Fore.CYAN, f"Here is a list of banned IPs : {bannedIPs}")
-            case "clear":
-                write(Fore.RESET, "Server shell cleared")
-                if os.name == "posix": os.system("clear")
-                else: os.system("cls")
-                print(Fore.RED, "Server Started")
-            case "echo": write(Fore.WHITE, splitedCommand[1])
-            case "execas":
-                splitedCommand = splitedCommand[1].split(" ", 1)
-                for key in list(connectionDict.keys()):
-                    if key.split(":", 1)[0] == splitedCommand[1]: connectionDict[splitedCommand[0]].send(f'execas|{splitedCommand[1]}%'.encode("utf-8"))
-            case "gamels": write(Fore.CYAN, f"Here is the gameInfos : {gameInfos}")
-            case "kick": 
-                if splitedCommand[1] not in list(connectionDict.keys()): 
-                    write(Fore.CYAN, f"'{splitedCommand[1]}' cannot be kicked")
-                    continue
-                connectionDict[f'{splitedCommand[1]}'].close()
-            case "list": write(Fore.CYAN, f"Here is a list of connected IPs : {list(connectionDict.keys())}")
-            case "man":
-                if len(splitedCommand) == 1:
-                    manMsg = "Here is the list of available commands :"
-                    for command in commandList: manMsg += (f"\n    -{command}")
-                    write(Fore.CYAN, manMsg)
-                elif splitedCommand[1] in commandList: write(Fore.WHITE, instruction[splitedCommand[1]])
-                else: write(Fore.CYAN, f'Man keyword "{splitedCommand[1]}" not reckognised')
-            case "pardon":
-                if splitedCommand[1] in bannedIPs: 
-                    bannedIPs.remove(splitedCommand[1])
-                    write(Fore.BLUE, f'{splitedCommand[1]} was pardoned')
-                else: write(Fore.BLUE, f'{splitedCommand[1]} is not banned')
-            case "partyls": write(Fore.CYAN, f"Here is the partylist : {partyLists}")
-            case "stop": 
-                exitProgramm = True
-                exit(0)
-            case _: write(Fore.CYAN, f'Command keyword "{splitedCommand[0]}" not reckognised')
+            self.gameInfos["players"][1]["coords"] = eval(srvMsg[5])
 
-def updatePartyList():
-    while True:
-        for gameMode in ["VS", "COOP"]:
-            for party in range(1, len(partyLists[gameMode])):
-                try: 
-                    if len(partyLists[gameMode][party]["players"]) == 0: partyLists[gameMode][party]["state"] = "EMPTY"
-                    if len(partyLists[gameMode][party]["players"]) == 2: partyLists[gameMode][party]["state"] = "FULL"
-                    if len(partyLists[gameMode][party]["players"]) == 1: partyLists[gameMode][party]["state"] = partyLists[gameMode][party]["players"][-1][1]
-                except IndexError: pass
+    #Makes the rockets move upwards in functin of when theybmoved last (so lag does not make them move slower)
+    def higherRockets(self):
+        rocketDelay = 0        
+        while self.currentState == "inGame": 
+            curTime = time()
+            rocketDiff = round((curTime-rocketDelay) * 100)
+            if rocketDiff == 0: continue
+            rocketDelay = curTime
+            try: self.gameInfos["rockets"] = [[rocket[0], rocket[1]-rocketDiff] for rocket in self.gameInfos["rockets"] if rocket[1] > 0]
+            except TypeError: print("Great! Another error in the higherRockets function! (Send this to Bugxit)")
+        
+    def lowerEnnemies(self):      
+        ennemyDelay = time()
+        while self.currentState == "inGame": 
+            curTime = time()
+            ennemyDiff = round(curTime-ennemyDelay)
+            ennemyDiff *= self.gameInfos["level"]
 
-def higherRockets():
-    rocketDelay = 0        
-    while True:
-        curTime = time()
-        rocketDiff = round((curTime-rocketDelay) * 100)
-        if rocketDiff == 0: continue
-        rocketDelay = curTime
-        for gameMode in ["VS", "COOP"]:
-            for game in range(1, len(gameInfos[gameMode])):
-                gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - rocketDiff] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - rocketDiff >= 0]
+            if len(self.gameInfos["forbidEnn"]) == len(COOP_ENNEMIES_POSITION): 
+                self.gameInfos["level"] += 1
+                self.gameInfos["score"] += 100
+                self.gameInfos["forbidEnn"] = []
+                self.gameInfos["ennemies"] = COOP_ENNEMIES_POSITION
+                ennemyDelay = curTime
 
-def write(Color, Message): 
-    print(Color, Message)
-    if "\n" in Message: Message = Message.split("\n") ; Message = "\n".join([Message[0]] +[" "*22+msg for msg in Message[1:]])
-    with open("serverLogs.txt", "a") as logsFile: logsFile.write(f"{datetime.now().strftime('%m/%d/%Y %H:%M:%S')} - {Message}\n")
+            invaded = False
 
-def main():
-    while True:
-        newClient, newClientAdress = sock.accept()    
-        try:
-            if newClientAdress[0] in bannedIPs: 
-                write(Fore.BLUE, f'{newClientAdress}(banned) tried to reconnect')
-                exit(0)
-            connectionDict[f"{newClientAdress[0]}:{newClientAdress[1]}"] = newClient
-            threading.Thread(target=ClientClass, args=(newClient, newClientAdress), daemon=True).start()
-        except: newClient.close()
+            for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
+                if ennemyIndex in self.gameInfos["forbidEnn"]: continue
+                if ennemy[2] >= 128: invaded = True ; break 
+                
+            if invaded: print("YOU LET AN ENNEMY INVADE THE STAR !")
+
+            if ennemyDiff == 0: continue
+            ennemyDelay = curTime
+            try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"]]
+            except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)")
+
+    def ennemiesCollisions(self):
+        while self.currentState == "inGame":
+            for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
+                if ennemyIndex in self.gameInfos["forbidEnn"]: continue
+                try:
+                    tempInfos0 = self.gameInfos["players"][0]["coords"]
+                    tempInfos1 = self.gameInfos["players"][1]["coords"]
+                    tempInfos0 = [(x, y) for x in range(tempInfos0[0], tempInfos0[0] + 15) for y in range(tempInfos0[1], tempInfos0[1] + 16)]
+                    tempInfos1 = [(x, y) for x in range(tempInfos1[0], tempInfos1[0] + 15) for y in range(tempInfos1[1], tempInfos1[1] + 16)]
+                except: pass
+                if  (
+                    ((ennemy[1],ennemy[2]) in tempInfos0)
+                    or ((ennemy[1], ennemy[2]+16) in tempInfos0)
+                    or ((ennemy[1]+16, ennemy[2]+16) in tempInfos0)
+                    or ((ennemy[1]+16, ennemy[2]) in tempInfos0)
+                    ):
+                    if self.gameMode == "COOP": 
+                        self.gameInfos["lives"] -= 1
+                        self.gameInfos["players"][0]["coords"] = [114, 104]
+                    else: 
+                        self.gameInfos["players"][0]["lives"] -= 1
+                        self.gameInfos["players"][0]["coords"] = [34, 104]
+
+                if  (
+                    ((ennemy[1],ennemy[2]) in tempInfos1)
+                    or ((ennemy[1], ennemy[2]+16) in tempInfos1)
+                    or ((ennemy[1]+16, ennemy[2]+16) in tempInfos1)
+                    or ((ennemy[1]+16, ennemy[2]) in tempInfos1)
+                    ):
+                    if self.gameMode == "COOP": 
+                        self.gameInfos["lives"] -= 1
+                        self.gameInfos["players"][1]["coords"] = [114, 104]
+                    else: 
+                        self.gameInfos["players"][1]["lives"] -= 1
+                        self.gameInfos["players"][1]["coords"] = [194, 104]
+
+                tempInfos = tempInfos = [(x, y) for x in range(ennemy[1], ennemy[1] + 15) for y in range(ennemy[2], ennemy[2] + 16)]
+                for rocket in self.gameInfos["rockets"]:
+                    if  (
+                        ((rocket[0],rocket[1]) in tempInfos)
+                        or ((rocket[0], rocket[1]+5) in tempInfos)
+                        or ((rocket[0]+1, rocket[1]+5) in tempInfos)
+                        or ((rocket[0]+1, rocket[1]) in tempInfos)
+                        ):
+                        self.gameInfos["forbidEnn"].append(ennemyIndex)
+                        try: self.gameInfos["rockets"].remove(rocket)
+                        except: pass
+                        if self.gameMode == "COOP": self.gameInfos["score"] += 10 ; continue
+                        # NEED to Increment score for VS
+
+    #Creates and handles the bonus
+    def bonusThread(self):
+        global bonusList
+        bonusList, alreadyTaken = [], False
+        while self.currentState == "inGame":
+            BONUS_ZONE_CONST = [5, 220]
+            if self.gameMode == "VS": BONUS_ZONE_CONST = [5, 100] if self.playerNumber == 0 else [126, 220]
+            self.curBonus, lastBonus, alreadyTaken = [[randint(BONUS_ZONE_CONST[0], BONUS_ZONE_CONST[1]), randint(5, 120)], randint(0,1)], time(), False
+            while time()-lastBonus <= 7:
+                if alreadyTaken: continue
+                try: tempInfos = self.gameInfos["players"][0]["coords"]
+                except TypeError: exit(0)
+                tempInfos = [(x, y) for x in range(tempInfos[0], tempInfos[0] + 15) for y in range(tempInfos[1], tempInfos[1] + 16)]
+                if  (
+                    ((self.curBonus[0][0],self.curBonus[0][1]) in tempInfos)
+                    or ((self.curBonus[0][0],self.curBonus[0][1]+8) in tempInfos)
+                    or ((self.curBonus[0][0]+8,self.curBonus[0][1]+8) in tempInfos)
+                    or ((self.curBonus[0][0]+8,self.curBonus[0][1]) in tempInfos)
+                    ): 
+                        bonusToApp = self.curBonus[1] * 2 - 1
+                        if -1 * bonusToApp in bonusList: bonusList.remove(-1 * bonusToApp)
+                        else: bonusList.append(bonusToApp) ; threading.Thread(target=self.bonusTimer, args=[bonusToApp], daemon=True).start()
+                        self.gameInfos["bonus"], alreadyTaken, self.curBonus[0] = sum(bonusList), True, [-10, -10]
+
+    #Timer to remove the bonus after 5s
+    def bonusTimer(self, bonusType):
+        global bonusList
+        sleep(5)
+        if bonusType in bonusList: bonusList.remove(bonusType)
+        self.gameInfos["bonus"] = sum(bonusList)
 
 if __name__ == "__main__":
     if os.name == "posix": os.system("clear")
     else: os.system("cls")
-    
-    write(Fore.RED, "Server Started")
-    
-    threading.Thread(target=main, daemon=True).start()
-    threading.Thread(target=executeAdmin, daemon=True).start()
-    threading.Thread(target=updatePartyList, daemon=True).start()
-    threading.Thread(target=higherRockets, daemon=True).start()
-    
-    try:
-        while not exitProgramm: pass
-    except KeyboardInterrupt: pass
 
-    write(Fore.RED, "Server stopped")
-    print(Fore.RESET)
-    exit(0)
+    COOP_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
+    VS_ENNEMIES_POSITION = []
+
+    #Connect to server
+    client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    try: client.connect(("localhost", 20101))
+    except OSError:
+        print("Could not connect to the server: try updating; try later")
+        exit()
+
+    #Start application
+    App(client)
+
