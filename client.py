@@ -440,7 +440,11 @@ class App:
                     if ennemyIndex in self.gameInfos["forbidEnn"]: continue
                     if ennemy[2] >= 128: invaded = True ; break 
                 
-                if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
+                if invaded:
+                    self.client.send("hasEnded|Lost:YOU LET AN ENNEMY INVADE THE STAR !".encode("utf-8"))
+                    self.hasEnded, self.endMessage = True, "Lost:YOU LET AN ENNEMY INVADE THE STAR !"
+                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"forbidEnn" : [], "rockets" : [], "players" : [{"level":0}, {"level":0}]}, ""
+                    return 0
             
             else:
                 thing = self.gameInfos["ennemies"][:5] if self.playerNumber == 0 else self.gameInfos["ennemies"][5:]
@@ -448,7 +452,11 @@ class App:
                     if (ennemyIndex + 5 * self.playerNumber) in self.gameInfos["forbidEnn"]: continue
                     if ennemy[2] >= 128: invaded = True ; break 
                 
-                if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
+                if invaded:
+                    self.client.send("hasEnded|Won:Your opponent's star was invaded".encode("utf-8"))
+                    self.hasEnded, self.endMessage = True, "Lost:YOU LET AN ENNEMY INVADE THE STAR !"
+                    self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"forbidEnn" : [], "rockets" : [], "players" : [{"level":0}, {"level":0}]}, ""
+                    return 0
 
             if ennemyDiff == 0: continue
             ennemyDelay = curTime
