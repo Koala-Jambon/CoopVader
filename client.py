@@ -433,14 +433,22 @@ class App:
                     self.gameInfos["players"][1]["score"] += 100
                     ennemyDelay = curTime
 
-
             invaded = False
 
-            for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
-                if ennemyIndex in self.gameInfos["forbidEnn"]: continue
-                if ennemy[2] >= 128: invaded = True ; break 
+            if self.gameMode == "COOP":
+                for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]):
+                    if ennemyIndex in self.gameInfos["forbidEnn"]: continue
+                    if ennemy[2] >= 128: invaded = True ; break 
                 
-            if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
+                if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
+            
+            else:
+                thing = self.gameInfos["ennemies"][:5] if self.playerNumber == 0 else self.gameInfos["ennemies"][5:]
+                for ennemyIndex, ennemy in enumerate(thing):
+                    if (ennemyIndex + 5 * self.playerNumber) in self.gameInfos["forbidEnn"]: continue
+                    if ennemy[2] >= 128: invaded = True ; break 
+                
+                if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
 
             if ennemyDiff == 0: continue
             ennemyDelay = curTime
