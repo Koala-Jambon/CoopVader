@@ -11,6 +11,8 @@ sock.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
 sock.bind(("", 20101))
 sock.listen()
 
+NoLogs = True
+
 bannedIPs = []
 connectionDict = {}
 exitProgramm = False
@@ -275,7 +277,8 @@ def higherRockets():
             for game in range(1, len(gameInfos[gameMode])):
                 gameInfos[gameMode][game]["rockets"] = [[rocket[0], rocket[1] - rocketDiff] for rocket in gameInfos[gameMode][game]["rockets"] if rocket[1] - rocketDiff >= 0]
 
-def write(Color, Message): 
+def write(Color, Message):
+    if NoLogs == True: return 
     print(Color, Message)
     if "\n" in Message: Message = Message.split("\n") ; Message = "\n".join([Message[0]] +[" "*22+msg for msg in Message[1:]])
     with open("serverLogs.txt", "a") as logsFile: logsFile.write(f"{datetime.now().strftime('%m/%d/%Y %H:%M:%S')} - {Message}\n")
