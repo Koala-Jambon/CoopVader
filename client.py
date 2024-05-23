@@ -519,7 +519,7 @@ if __name__ == "__main__":
     else: os.system("cls")
 
     COOP_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
-    VS_ENNEMIES_POSITION = []
+    VS_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5],  [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
 
     #Connect to server
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
