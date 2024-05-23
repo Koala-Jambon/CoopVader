@@ -28,7 +28,8 @@ class App:
                              pyxel.KEY_U, pyxel.KEY_V, pyxel.KEY_W, pyxel.KEY_X, pyxel.KEY_Y, pyxel.KEY_Z,
                              pyxel.KEY_1, pyxel.KEY_2, pyxel.KEY_3, pyxel.KEY_4, pyxel.KEY_5,
                              pyxel.KEY_6, pyxel.KEY_7, pyxel.KEY_8, pyxel.KEY_9, pyxel.KEY_0,]
-
+        self.superRandom = randint(0, 4)
+        
         #joinLobby:
         self.loadedParties = [None, None, None]
         
@@ -94,7 +95,7 @@ class App:
         pyxel.blt(50, 5, 0, 0, 0, 128, 13)
         pyxel.text(88, pyxel.height/2 - 8, "VOTRE PSEUDO:", 13)
         pyxel.text((pyxel.width - len(self.userNickname)*4 ) / 2, pyxel.height/2, self.userNickname, 7)
-        pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16, 0, 16, 16)
+        pyxel.blt(pyxel.width / 2 - 8, pyxel.height - 24, 0, 16 * self.superRandom, 16, 16, 16)
         return 0
 
     def update_mainLobby(self):
@@ -366,7 +367,7 @@ class App:
         pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
         for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]): 
             if ennemyIndex  in self.gameInfos["forbidEnn"]: continue
-            pyxel.rect(ennemy[1], ennemy[2], [15, 16, 16][ennemy[0]], 16, [1, 2, 3][ennemy[0]])
+            pyxel.blt(ennemy[1], ennemy[2], 0, [0,48,64][ennemy[0]], 16, 16, 16)
         
         for rocket in self.gameInfos["rockets"]: pyxel.rect(rocket[0], rocket[1], 2, 5, 7)
         return 0
@@ -412,7 +413,7 @@ class App:
             ennemyDiff = round(curTime-ennemyDelay)
             ennemyDiff *= self.gameInfos["level"]
 
-            if len(self.gameInfos["forbidEnn"]) == len(COOP_ENNEMIES_POSITION): 
+            if len(self.gameInfos["forbidEnn"]) >= len(COOP_ENNEMIES_POSITION): 
                 self.gameInfos["level"] += 1
                 self.gameInfos["score"] += 100
                 self.gameInfos["forbidEnn"] = []
