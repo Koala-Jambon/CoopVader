@@ -212,7 +212,7 @@ class App:
             elif self.createLobbyButton == 2:
                 #Sets up the variables for later use
                 self.currentState, self.gameMode = "waitGame", ["VS", "COOP"][self.createLobbyButton2]
-                if self.gameMode == "VS": self.gameInfos = {"level" : 0, "bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0}]}
+                if self.gameMode == "VS": self.gameInfos = {"bonus" : 0, "ennemies" : VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104], "lives" : 3, "score" : 0, "level" : 0}, {"coords": [194, 104], "lives" : 3, "score" : 0, "level" : 0}]}
                 elif self.gameMode == "COOP": self.gameInfos = {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies" : COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [34, 104]}, {"coords": [194, 104]}]}
                 self.client.send(f'create|{self.gameMode}'.encode("utf-8")) #Tells the server to create a party
                 srvMsg = self.client.recv(1024).decode("utf-8").split('|', 1) #Gets the answer of the server
@@ -421,15 +421,17 @@ class App:
                     ennemyDelay = curTime
             else:
                 if 0 in self.gameInfos["forbidEnn"] and 1 in self.gameInfos["forbidEnn"] and 2 in self.gameInfos["forbidEnn"] and 3 in self.gameInfos["forbidEnn"] and 4 in self.gameInfos["forbidEnn"]:
+                    for i in range(5): self.gameInfos["forbidEnn"].remove(i)
                     self.gameInfos["players"][0]["level"] += 1
                     self.gameInfos["players"][0]["score"] += 100
-                    for i in range(5): self.gameInfos["forbidEnn"].remove(i)
-                    self.gameInfos["ennemies"][:5] = VS_ENNEMIES_POSITION[:5]
+                    self.gameInfos["ennemies"][:5] = INITIAL_VS_ENNEMIES_POSITION[:5]
+                    ennemyDelay = curTime
                 if 5 in self.gameInfos["forbidEnn"] and 6 in self.gameInfos["forbidEnn"] and 7 in self.gameInfos["forbidEnn"] and 8 in self.gameInfos["forbidEnn"] and 9 in self.gameInfos["forbidEnn"]:
-                    for i in range(1, 6): self.gameInfos["forbidEnn"].remove(i)
-                    self.gameInfos["ennemies"][:5] = VS_ENNEMIES_POSITION[:5] 
+                    for i in range(5, 10): self.gameInfos["forbidEnn"].remove(i)
+                    self.gameInfos["ennemies"][5:] = INITIAL_VS_ENNEMIES_POSITION[5:]
                     self.gameInfos["players"][1]["level"] += 1
                     self.gameInfos["players"][1]["score"] += 100
+                    ennemyDelay = curTime
 
 
             invaded = False
@@ -492,7 +494,7 @@ class App:
                         self.gameInfos["players"][1]["lives"] -= 1
                         self.gameInfos["players"][1]["coords"] = [194, 104]
 
-                tempInfos = tempInfos = [(x, y) for x in range(ennemy[1], ennemy[1] + 15) for y in range(ennemy[2], ennemy[2] + 16)]
+                tempInfos = [(x, y) for x in range(ennemy[1], ennemy[1] + 15) for y in range(ennemy[2], ennemy[2] + 16)]
                 for rocket in self.gameInfos["rockets"]:
                     if  (
                         ((rocket[0],rocket[1]) in tempInfos)
@@ -545,6 +547,7 @@ if __name__ == "__main__":
 
     COOP_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5], [1, 105, 5], [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
     VS_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5],  [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
+    INITIAL_VS_ENNEMIES_POSITION = [[0, 5, 5], [1, 25, 5], [2, 45, 5], [2, 65, 5], [0, 85, 5],  [2, 125, 5], [2, 145, 5], [1, 165, 5], [2, 185, 5], [2, 205, 5]]
 
     #Connect to server
     client = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
