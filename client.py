@@ -364,7 +364,7 @@ class App:
             pyxel.text(200, 0, f"lives:{self.gameInfos['players'][1]['lives']}", 7)
             pyxel.text(200, 10, f"score:{self.gameInfos['players'][1]['score']}", 7)
 
-        pyxel.rect(self.curBonus[0][0], self.curBonus[0][1], 9, 9, [8, 3][self.curBonus[1]])
+        pyxel.blt(self.curBonus[0][0], self.curBonus[0][1], 0, 4 + 7 * self.curBonus[1], 37, 7, 7)
         for ennemyIndex, ennemy in enumerate(self.gameInfos["ennemies"]): 
             if ennemyIndex  in self.gameInfos["forbidEnn"]: continue
             pyxel.blt(ennemy[1], ennemy[2], 0, [0,48,64][ennemy[0]], 16, 16, 16)
@@ -426,7 +426,7 @@ class App:
                 if ennemyIndex in self.gameInfos["forbidEnn"]: continue
                 if ennemy[2] >= 128: invaded = True ; break 
                 
-            if invaded: print("YOU LET AN ENNEMY INVADE THE STAR !")
+            if invaded: print("💣 YOU LET AN ENNEMY INVADE THE STAR ! ⭐")
 
             if ennemyDiff == 0: continue
             ennemyDelay = curTime
