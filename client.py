@@ -111,7 +111,7 @@ class App:
                 pyxel.quit() #Close program
                 
             #Updates variables in function of the button the user pressed
-            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"level" : 0, "bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0}, {"coords": [], "lives" : 3, "score" : 0}]}, {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
+            elif self.mainLobbyButton in [1,2]: self.currentState, self.gameMode, self.gameInfos = "joinLobby", ["VS", "COOP"][self.mainLobbyButton-1], [{"bonus" : 0, "ennemies": VS_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": [], "lives" : 3, "score" : 0, "level": 0}, {"coords": [], "lives" : 3, "score" : 0, "level" : 0}]}, {"level" : 0, "lives" : 3, "score" : 0, "bonus" : 0, "ennemies": COOP_ENNEMIES_POSITION, "forbidEnn" : [], "rockets" : [], "players" : [{"coords": []}, {"coords": []}]}][self.mainLobbyButton-1]
             elif self.mainLobbyButton == 3: self.currentState = "createLobby"
             
             self.client.send(f'button|{self.currentState}{self.gameMode}'.encode("utf-8")) #Tells to the server the user pressed X button
@@ -297,7 +297,7 @@ class App:
         elif self.gameMode == "VS" and self.gameInfos["players"][self.playerNumber]["lives"] <= 0: 
             self.client.send("hasEnded|Won:Your opponent died before you".encode("utf-8"))
             self.hasEnded, self.endMessage = True, "Lost:You died before your opponent"
-            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"level": 0, "forbidEnn" : [], "rockets" : [], "players" : [[], []]}, ""
+            self.currentState, self.gameInfos, self.gameMode = "mainLobby", {"forbidEnn" : [], "rockets" : [], "players" : [{"level":0}, {"level":0}]}, ""
             return 0
 
         action = "None" # Resets the shot
@@ -411,14 +411,26 @@ class App:
         while self.currentState == "inGame": 
             curTime = time()
             ennemyDiff = round(curTime-ennemyDelay)
-            ennemyDiff *= self.gameInfos["level"]
 
-            if len(self.gameInfos["forbidEnn"]) >= len(COOP_ENNEMIES_POSITION): 
-                self.gameInfos["level"] += 1
-                self.gameInfos["score"] += 100
-                self.gameInfos["forbidEnn"] = []
-                self.gameInfos["ennemies"] = COOP_ENNEMIES_POSITION
-                ennemyDelay = curTime
+            if self.gameMode == "COOP":
+                if len(self.gameInfos["forbidEnn"]) >= len(COOP_ENNEMIES_POSITION): 
+                    self.gameInfos["level"] += 1
+                    self.gameInfos["score"] += 100
+                    self.gameInfos["forbidEnn"] = []
+                    self.gameInfos["ennemies"] = COOP_ENNEMIES_POSITION
+                    ennemyDelay = curTime
+            else:
+                if 0 in self.gameInfos["forbidEnn"] and 1 in self.gameInfos["forbidEnn"] and 2 in self.gameInfos["forbidEnn"] and 3 in self.gameInfos["forbidEnn"] and 4 in self.gameInfos["forbidEnn"]:
+                    self.gameInfos["players"][0]["level"] += 1
+                    self.gameInfos["players"][0]["score"] += 100
+                    for i in range(5): self.gameInfos["forbidEnn"].remove(i)
+                    self.gameInfos["ennemies"][:5] = VS_ENNEMIES_POSITION[:5]
+                if 5 in self.gameInfos["forbidEnn"] and 6 in self.gameInfos["forbidEnn"] and 7 in self.gameInfos["forbidEnn"] and 8 in self.gameInfos["forbidEnn"] and 9 in self.gameInfos["forbidEnn"]:
+                    for i in range(1, 6): self.gameInfos["forbidEnn"].remove(i)
+                    self.gameInfos["ennemies"][:5] = VS_ENNEMIES_POSITION[:5] 
+                    self.gameInfos["players"][1]["level"] += 1
+                    self.gameInfos["players"][1]["score"] += 100
+
 
             invaded = False
 
@@ -430,8 +442,19 @@ class App:
 
             if ennemyDiff == 0: continue
             ennemyDelay = curTime
-            try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"]]
-            except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)")
+
+            if self.gameMode == "COOP":
+                ennemyDiff *= self.gameInfos["level"]
+                if ennemyDiff == 0: continue
+                try: self.gameInfos["ennemies"] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff] for ennemy in self.gameInfos["ennemies"]]
+                except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)")
+            else:
+                ennemyDiff0 = ennemyDiff * self.gameInfos["players"][0]["level"]
+                ennemyDiff1 = ennemyDiff * self.gameInfos["players"][1]["level"]
+                try: self.gameInfos["ennemies"][:5] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff0] for ennemy in self.gameInfos["ennemies"][:5]]
+                except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)") 
+                try: self.gameInfos["ennemies"][5:] = [[ennemy[0], ennemy[1], ennemy[2]+ennemyDiff1] for ennemy in self.gameInfos["ennemies"][5:]]
+                except TypeError: print("Great! Another error in the lowerEnnemies function! (Send this to Bugxit)") 
 
     def ennemiesCollisions(self):
         while self.currentState == "inGame":
@@ -481,7 +504,9 @@ class App:
                         try: self.gameInfos["rockets"].remove(rocket)
                         except: pass
                         if self.gameMode == "COOP": self.gameInfos["score"] += 10 ; continue
-                        # NEED to Increment score for VS
+                        else:
+                            playerToIncrement = 0 if ennemy[2] <= 100 else 1
+                            self.gameInfos["players"][playerToIncrement]["score"] += 10
 
     #Creates and handles the bonus
     def bonusThread(self):
@@ -530,4 +555,3 @@ if __name__ == "__main__":
 
     #Start application
     App(client)
-
