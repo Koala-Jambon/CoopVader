@@ -359,8 +359,12 @@ class App:
             pyxel.text(0, 10, f"score:{self.gameInfos['score']}", 7)
         else:
             pyxel.rect(106, 0, 16, 128, 7)
+            pyxel.text(1, 1, f"lives:{self.gameInfos['players'][0]['lives']}", 1)
+            pyxel.text(1, 11, f"score:{self.gameInfos['players'][0]['score']}", 1)
             pyxel.text(0, 0, f"lives:{self.gameInfos['players'][0]['lives']}", 7)
             pyxel.text(0, 10, f"score:{self.gameInfos['players'][0]['score']}", 7)
+            pyxel.text(201, 1, f"lives:{self.gameInfos['players'][1]['lives']}", 1)
+            pyxel.text(201, 11, f"score:{self.gameInfos['players'][1]['score']}", 1)
             pyxel.text(200, 0, f"lives:{self.gameInfos['players'][1]['lives']}", 7)
             pyxel.text(200, 10, f"score:{self.gameInfos['players'][1]['score']}", 7)
 
